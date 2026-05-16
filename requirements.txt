@@ -3,3 +3,4 @@ openai
 aiohttp
 pydub
 ffmpeg-python
+python-dotenv
