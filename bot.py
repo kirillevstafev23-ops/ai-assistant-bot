@@ -2,7 +2,6 @@
 
 import os
 import asyncio
-import tempfile
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -26,10 +25,6 @@ OPENROUTER_API_KEY = os.getenv(
     "OPENROUTER_API_KEY"
 )
 
-OPENAI_API_KEY = os.getenv(
-    "OPENAI_API_KEY"
-)
-
 
 # ====================================
 # BOT
@@ -50,20 +45,10 @@ client = OpenAI(
 
 
 # ====================================
-# OPENAI WHISPER
-# ====================================
-
-whisper_client = OpenAI(
-    api_key=OPENAI_API_KEY
-)
-
-
-# ====================================
 # USER DATA
 # ====================================
 
 user_memory = {}
-
 user_modes = {}
 
 
@@ -187,7 +172,7 @@ async def set_mode(
     }
 
     await callback.message.answer(
-        f"Режим выбран:\n{titles[mode_name]}"
+        f"✅ Режим выбран:\n{titles[mode_name]}"
     )
 
     await callback.answer()
@@ -246,10 +231,14 @@ async def new_chat(callback: CallbackQuery):
 
 
 # ====================================
-# GPT RESPONSE
+# CHAT
 # ====================================
 
-async def ask_gpt(user_id, user_text):
+@dp.message()
+async def chat(message: Message):
+
+    user_id = message.from_user.id
+    user_text = message.text
 
     # default mode
     if user_id not in user_modes:
@@ -275,109 +264,34 @@ async def ask_gpt(user_id, user_text):
         }
     )
 
-    response = client.chat.completions.create(
-        model="openai/gpt-3.5-turbo",
-        messages=user_memory[user_id]
-    )
-
-    answer = response.choices[0].message.content
-
-    if not answer:
-        answer = "AI не смог ответить."
-
-    # save answer
-    user_memory[user_id].append(
-        {
-            "role": "assistant",
-            "content": answer
-        }
-    )
-
-    return answer
-
-
-# ====================================
-# TEXT CHAT
-# ====================================
-
-@dp.message(F.text)
-async def chat(message: Message):
-
-    user_id = message.from_user.id
-    user_text = message.text
-
     wait_message = await message.answer(
         "💭 Думаю..."
     )
 
     try:
 
-        answer = await ask_gpt(
-            user_id,
-            user_text
+        response = client.chat.completions.create(
+
+            # БЕСПЛАТНАЯ МОДЕЛЬ
+            model="mistralai/mistral-7b-instruct",
+
+            messages=user_memory[user_id]
+        )
+
+        answer = response.choices[0].message.content
+
+        if not answer:
+            answer = "AI не смог ответить."
+
+        # save answer
+        user_memory[user_id].append(
+            {
+                "role": "assistant",
+                "content": answer
+            }
         )
 
         await message.answer(answer)
-
-    except Exception as e:
-
-        await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
-        )
-
-    await wait_message.delete()
-
-
-# ====================================
-# VOICE MESSAGE
-# ====================================
-
-@dp.message(F.voice)
-async def voice_message(message: Message):
-
-    wait_message = await message.answer(
-        "🎤 Распознаю голос..."
-    )
-
-    try:
-
-        voice = await bot.get_file(
-            message.voice.file_id
-        )
-
-        with tempfile.NamedTemporaryFile(
-            suffix=".ogg",
-            delete=False
-        ) as temp_audio:
-
-            await bot.download_file(
-                voice.file_path,
-                temp_audio.name
-            )
-
-            temp_audio_path = temp_audio.name
-
-        with open(temp_audio_path, "rb") as audio_file:
-
-            transcript = whisper_client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file
-            )
-
-        user_text = transcript.text
-
-        await message.answer(
-            f"📝 Ты сказал:\n{user_text}"
-        )
-
-        answer = await ask_gpt(
-            message.from_user.id,
-            user_text
-        )
-
-        await message.answer(answer)
-
-        os.remove(temp_audio_path)
 
     except Exception as e:
 
