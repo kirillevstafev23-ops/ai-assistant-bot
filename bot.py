@@ -3,6 +3,7 @@
 import os
 import asyncio
 import sqlite3
+import base64
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -276,6 +277,72 @@ async def clear_chat(message: Message):
 
 
 # ====================================
+# PHOTO ANALYSIS
+# ====================================
+
+@dp.message(F.photo)
+async def photo_handler(message: Message):
+
+    await bot.send_chat_action(
+        message.chat.id,
+        ChatAction.TYPING
+    )
+
+    wait_message = await message.answer(
+        "🖼 Анализирую изображение..."
+    )
+
+    try:
+
+        photo = message.photo[-1]
+
+        file = await bot.get_file(photo.file_id)
+
+        file_path = file.file_path
+
+        downloaded_file = await bot.download_file(file_path)
+
+        image_bytes = downloaded_file.read()
+
+        base64_image = base64.b64encode(
+            image_bytes
+        ).decode("utf-8")
+
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Проанализируй это изображение максимально подробно"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        await message.answer(answer)
+
+    except Exception as e:
+
+        await message.answer(
+            f"❌ Ошибка:\n{str(e)}"
+        )
+
+    await wait_message.delete()
+
+
+# ====================================
 # CHAT
 # ====================================
 
@@ -312,7 +379,6 @@ async def chat(message: Message):
     # limit memory
     user_memory[user_id] = user_memory[user_id][-20:]
 
-    # typing
     await bot.send_chat_action(
         message.chat.id,
         ChatAction.TYPING
