@@ -157,7 +157,11 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Выбери режим AI 👇",
+        "Теперь бот умеет:\n"
+        "• текст\n"
+        "• фото\n"
+        "• голосовые\n\n"
+        "Выбери режим 👇",
         reply_markup=menu
     )
 
@@ -256,37 +260,11 @@ async def new_chat(callback: CallbackQuery):
 
 
 # ====================================
-# CLEAR COMMAND
-# ====================================
-
-@dp.message(F.text == "/clear")
-async def clear_chat(message: Message):
-
-    user_id = message.from_user.id
-
-    mode = user_modes.get(user_id, "default")
-
-    user_memory[user_id] = [
-        {
-            "role": "system",
-            "content": MODES[mode]
-        }
-    ]
-
-    await message.answer("🧹 История очищена")
-
-
-# ====================================
 # PHOTO ANALYSIS
 # ====================================
 
 @dp.message(F.photo)
 async def photo_handler(message: Message):
-
-    await bot.send_chat_action(
-        message.chat.id,
-        ChatAction.TYPING
-    )
 
     wait_message = await message.answer(
         "🖼 Анализирую изображение..."
@@ -298,9 +276,9 @@ async def photo_handler(message: Message):
 
         file = await bot.get_file(photo.file_id)
 
-        file_path = file.file_path
-
-        downloaded_file = await bot.download_file(file_path)
+        downloaded_file = await bot.download_file(
+            file.file_path
+        )
 
         image_bytes = downloaded_file.read()
 
@@ -316,7 +294,7 @@ async def photo_handler(message: Message):
                     "content": [
                         {
                             "type": "text",
-                            "text": "Проанализируй это изображение максимально подробно"
+                            "text": "Опиши это изображение"
                         },
                         {
                             "type": "image_url",
@@ -343,6 +321,18 @@ async def photo_handler(message: Message):
 
 
 # ====================================
+# VOICE
+# ====================================
+
+@dp.message(F.voice)
+async def voice_handler(message: Message):
+
+    await message.answer(
+        "🎤 Голосовые скоро будут подключены."
+    )
+
+
+# ====================================
 # CHAT
 # ====================================
 
@@ -352,11 +342,9 @@ async def chat(message: Message):
     user_id = message.from_user.id
     user_text = message.text
 
-    # default mode
     if user_id not in user_modes:
         user_modes[user_id] = "default"
 
-    # create memory
     if user_id not in user_memory:
 
         current_mode = user_modes[user_id]
@@ -368,7 +356,6 @@ async def chat(message: Message):
             }
         ]
 
-    # save user message
     user_memory[user_id].append(
         {
             "role": "user",
@@ -376,7 +363,6 @@ async def chat(message: Message):
         }
     )
 
-    # limit memory
     user_memory[user_id] = user_memory[user_id][-20:]
 
     await bot.send_chat_action(
@@ -400,7 +386,6 @@ async def chat(message: Message):
         if not answer:
             answer = "AI не смог ответить."
 
-        # save answer
         user_memory[user_id].append(
             {
                 "role": "assistant",
