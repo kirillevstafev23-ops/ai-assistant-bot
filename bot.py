@@ -6,7 +6,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
-    CallbackQuery,
+   CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
@@ -272,8 +272,7 @@ async def chat(message: Message):
 
         response = client.chat.completions.create(
 
-            # БЕСПЛАТНАЯ РАБОЧАЯ МОДЕЛЬ
-            model="meta-llama/llama-3-8b-instruct:free",
+            model="openai/gpt-3.5-turbo",
 
             messages=user_memory[user_id]
         )
