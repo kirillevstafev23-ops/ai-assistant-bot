@@ -335,20 +335,68 @@ async def voice_handler(message: Message):
 
         voice = message.voice
 
-        file = await bot.get_file(voice.file_id)
+        file = await bot.get_file(
+            voice.file_id
+        )
 
-        voice_file = await bot.download_file(
+        downloaded = await bot.download_file(
             file.file_path
         )
 
-        voice_bytes = voice_file.read()
-
         with open("voice.ogg", "wb") as f:
-            f.write(voice_bytes)
+            f.write(downloaded.read())
+
+        audio_file = open("voice.ogg", "rb")
+
+        transcription = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_file
+        )
+
+        recognized_text = transcription.text
 
         await message.answer(
-            "🧠 Голос получен и обработан."
+            f"🗣 Вы сказали:\n\n{recognized_text}"
         )
+
+        user_id = message.from_user.id
+
+        if user_id not in user_modes:
+            user_modes[user_id] = "default"
+
+        if user_id not in user_memory:
+
+            current_mode = user_modes[user_id]
+
+            user_memory[user_id] = [
+                {
+                    "role": "system",
+                    "content": MODES[current_mode]
+                }
+            ]
+
+        user_memory[user_id].append(
+            {
+                "role": "user",
+                "content": recognized_text
+            }
+        )
+
+        response = client.chat.completions.create(
+            model="openai/gpt-4o-mini",
+            messages=user_memory[user_id]
+        )
+
+        answer = response.choices[0].message.content
+
+        user_memory[user_id].append(
+            {
+                "role": "assistant",
+                "content": answer
+            }
+        )
+
+        await message.answer(answer)
 
     except Exception as e:
 
