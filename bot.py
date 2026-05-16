@@ -11,6 +11,7 @@ from aiogram.types import (
     InlineKeyboardButton
 )
 from aiogram.filters import CommandStart
+from aiogram.enums import ChatAction
 
 from openai import OpenAI
 
@@ -20,10 +21,7 @@ from openai import OpenAI
 # ====================================
 
 TOKEN = os.getenv("TOKEN")
-
-OPENROUTER_API_KEY = os.getenv(
-    "OPENROUTER_API_KEY"
-)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
 # ====================================
@@ -49,7 +47,6 @@ client = OpenAI(
 # ====================================
 
 user_memory = {}
-
 user_modes = {}
 
 
@@ -232,6 +229,27 @@ async def new_chat(callback: CallbackQuery):
 
 
 # ====================================
+# CLEAR COMMAND
+# ====================================
+
+@dp.message(F.text == "/clear")
+async def clear_chat(message: Message):
+
+    user_id = message.from_user.id
+
+    mode = user_modes.get(user_id, "default")
+
+    user_memory[user_id] = [
+        {
+            "role": "system",
+            "content": MODES[mode]
+        }
+    ]
+
+    await message.answer("🧹 История очищена")
+
+
+# ====================================
 # CHAT
 # ====================================
 
@@ -265,6 +283,15 @@ async def chat(message: Message):
         }
     )
 
+    # limit memory
+    user_memory[user_id] = user_memory[user_id][-20:]
+
+    # typing
+    await bot.send_chat_action(
+        message.chat.id,
+        ChatAction.TYPING
+    )
+
     wait_message = await message.answer(
         "💭 Думаю..."
     )
@@ -272,7 +299,7 @@ async def chat(message: Message):
     try:
 
         response = client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
+            model="openai/gpt-4o-mini",
             messages=user_memory[user_id]
         )
 
