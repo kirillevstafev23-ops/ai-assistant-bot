@@ -349,7 +349,7 @@ async def voice_handler(message: Message):
         audio_file = open("voice.ogg", "rb")
 
         transcription = client.audio.transcriptions.create(
-            model="whisper-1",
+            model="openai/whisper-1",
             file=audio_file
         )
 
