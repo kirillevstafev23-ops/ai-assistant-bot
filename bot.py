@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import asyncio
 
 from aiogram import Bot, Dispatcher, F
@@ -15,12 +16,14 @@ from openai import OpenAI
 
 
 # ====================================
-# TOKENS
+# TOKENS FROM RENDER
 # ====================================
 
-TOKEN = "PASTE_TELEGRAM_TOKEN"
+TOKEN = os.getenv("TOKEN")
 
-OPENROUTER_API_KEY = "PASTE_OPENROUTER_KEY"
+OPENROUTER_API_KEY = os.getenv(
+    "OPENROUTER_API_KEY"
+)
 
 
 # ====================================
@@ -63,22 +66,22 @@ MODES = {
 
     "coder": (
         "Ты опытный программист. "
-        "Помогай с кодом, объясняй просто и понятно."
+        "Помогай с кодом и объясняй просто."
     ),
 
     "business": (
-        "Ты бизнес-консультант и стартап эксперт. "
-        "Помогай с идеями, маркетингом и заработком."
+        "Ты бизнес-консультант. "
+        "Помогай с идеями и заработком."
     ),
 
     "psychologist": (
-        "Ты спокойный и поддерживающий психолог. "
-        "Отвечай мягко и с эмпатией."
+        "Ты спокойный психолог. "
+        "Поддерживай пользователя."
     ),
 
     "copywriter": (
         "Ты профессиональный копирайтер. "
-        "Пиши продающие и интересные тексты."
+        "Пиши сильные тексты."
     )
 }
 
@@ -137,7 +140,7 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Выбери режим работы AI 👇",
+        "Выбери режим AI 👇",
         reply_markup=menu
     )
 
@@ -146,7 +149,10 @@ async def start(message: Message):
 # SET MODE
 # ====================================
 
-async def set_mode(callback: CallbackQuery, mode_name: str):
+async def set_mode(
+    callback: CallbackQuery,
+    mode_name: str
+):
 
     user_id = callback.from_user.id
 
@@ -159,7 +165,7 @@ async def set_mode(callback: CallbackQuery, mode_name: str):
         }
     ]
 
-    mode_titles = {
+    titles = {
         "coder": "👨‍💻 Программист",
         "business": "💰 Бизнес",
         "psychologist": "🧠 Психолог",
@@ -167,7 +173,7 @@ async def set_mode(callback: CallbackQuery, mode_name: str):
     }
 
     await callback.message.answer(
-        f"Режим выбран:\n{mode_titles[mode_name]}"
+        f"Режим выбран:\n{titles[mode_name]}"
     )
 
     await callback.answer()
@@ -206,7 +212,10 @@ async def new_chat(callback: CallbackQuery):
 
     user_id = callback.from_user.id
 
-    current_mode = user_modes.get(user_id, "default")
+    current_mode = user_modes.get(
+        user_id,
+        "default"
+    )
 
     user_memory[user_id] = [
         {
@@ -232,11 +241,11 @@ async def chat(message: Message):
     user_id = message.from_user.id
     user_text = message.text
 
-    # если режим ещё не выбран
+    # default mode
     if user_id not in user_modes:
         user_modes[user_id] = "default"
 
-    # если памяти нет
+    # create memory
     if user_id not in user_memory:
 
         current_mode = user_modes[user_id]
@@ -248,7 +257,7 @@ async def chat(message: Message):
             }
         ]
 
-    # добавляем сообщение
+    # save user message
     user_memory[user_id].append(
         {
             "role": "user",
@@ -272,7 +281,7 @@ async def chat(message: Message):
         if not answer:
             answer = "AI не смог ответить."
 
-        # сохраняем ответ
+        # save answer
         user_memory[user_id].append(
             {
                 "role": "assistant",
