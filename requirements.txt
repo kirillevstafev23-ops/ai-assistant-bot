@@ -1,4 +1,5 @@
 aiogram
-requests
-python-dotenv
 openai
+aiohttp
+pydub
+ffmpeg-python
