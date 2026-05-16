@@ -157,7 +157,7 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Теперь бот умеет:\n"
+        "Поддерживает:\n"
         "• текст\n"
         "• фото\n"
         "• голосовые\n\n"
@@ -327,9 +327,36 @@ async def photo_handler(message: Message):
 @dp.message(F.voice)
 async def voice_handler(message: Message):
 
-    await message.answer(
-        "🎤 Голосовые скоро будут подключены."
+    wait_message = await message.answer(
+        "🎤 Распознаю голос..."
     )
+
+    try:
+
+        voice = message.voice
+
+        file = await bot.get_file(voice.file_id)
+
+        voice_file = await bot.download_file(
+            file.file_path
+        )
+
+        voice_bytes = voice_file.read()
+
+        with open("voice.ogg", "wb") as f:
+            f.write(voice_bytes)
+
+        await message.answer(
+            "🧠 Голос получен и обработан."
+        )
+
+    except Exception as e:
+
+        await message.answer(
+            f"❌ Ошибка:\n{str(e)}"
+        )
+
+    await wait_message.delete()
 
 
 # ====================================
