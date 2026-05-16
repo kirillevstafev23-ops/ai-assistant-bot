@@ -272,8 +272,8 @@ async def chat(message: Message):
 
         response = client.chat.completions.create(
 
-            # БЕСПЛАТНАЯ МОДЕЛЬ
-            model="mistralai/mistral-7b-instruct",
+            # БЕСПЛАТНАЯ РАБОЧАЯ МОДЕЛЬ
+            model="meta-llama/llama-3-8b-instruct:free",
 
             messages=user_memory[user_id]
         )
