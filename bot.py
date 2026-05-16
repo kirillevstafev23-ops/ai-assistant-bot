@@ -16,7 +16,7 @@ from openai import OpenAI
 
 
 # ====================================
-# TOKENS FROM RENDER
+# TOKENS
 # ====================================
 
 TOKEN = os.getenv("TOKEN")
