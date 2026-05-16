@@ -2,6 +2,7 @@
 
 import os
 import asyncio
+import sqlite3
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -30,6 +31,24 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+
+# ====================================
+# DATABASE
+# ====================================
+
+db = sqlite3.connect("database.db")
+
+cursor = db.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    mode TEXT
+)
+""")
+
+db.commit()
 
 
 # ====================================
@@ -154,6 +173,13 @@ async def set_mode(
     user_id = callback.from_user.id
 
     user_modes[user_id] = mode_name
+
+    cursor.execute(
+        "INSERT OR REPLACE INTO users (user_id, mode) VALUES (?, ?)",
+        (user_id, mode_name)
+    )
+
+    db.commit()
 
     user_memory[user_id] = [
         {
