@@ -9,3 +9,5 @@ requests
 PyPDF2
 python-docx
 Pillow
+pytesseract
+Pillow
