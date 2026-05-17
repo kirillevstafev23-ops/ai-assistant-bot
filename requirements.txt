@@ -7,3 +7,5 @@ python-dotenv
 duckduckgo-search
 requests
 PyPDF2
+python-docx
+Pillow
