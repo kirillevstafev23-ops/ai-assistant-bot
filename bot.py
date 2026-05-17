@@ -2,6 +2,7 @@
 
 import os
 import asyncio
+import requests
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -23,6 +24,10 @@ TOKEN = os.getenv("TOKEN")
 
 OPENROUTER_API_KEY = os.getenv(
     "OPENROUTER_API_KEY"
+)
+
+TAVILY_API_KEY = os.getenv(
+    "TAVILY_API_KEY"
 )
 
 
@@ -131,6 +136,47 @@ menu = InlineKeyboardMarkup(
 
 
 # ====================================
+# INTERNET SEARCH
+# ====================================
+
+def search_internet(query):
+
+    try:
+
+        url = "https://api.tavily.com/search"
+
+        payload = {
+            "api_key": TAVILY_API_KEY,
+            "query": query,
+            "search_depth": "basic",
+            "max_results": 5
+        }
+
+        response = requests.post(
+            url,
+            json=payload
+        )
+
+        data = response.json()
+
+        results = data.get("results", [])
+
+        text = ""
+
+        for item in results:
+
+            text += (
+                f"{item['title']}\n"
+                f"{item['content']}\n\n"
+            )
+
+        return text
+
+    except:
+        return "Интернет-поиск недоступен."
+
+
+# ====================================
 # START
 # ====================================
 
@@ -139,7 +185,7 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Выбери режим AI 👇",
+        "Теперь бот умеет искать в интернете 🌐",
         reply_markup=menu
     )
 
@@ -164,15 +210,8 @@ async def set_mode(
         }
     ]
 
-    titles = {
-        "coder": "👨‍💻 Программист",
-        "business": "💰 Бизнес",
-        "psychologist": "🧠 Психолог",
-        "copywriter": "✍️ Копирайтер"
-    }
-
     await callback.message.answer(
-        f"✅ Режим выбран:\n{titles[mode_name]}"
+        f"✅ Режим: {mode_name}"
     )
 
     await callback.answer()
@@ -240,11 +279,9 @@ async def chat(message: Message):
     user_id = message.from_user.id
     user_text = message.text
 
-    # default mode
     if user_id not in user_modes:
         user_modes[user_id] = "default"
 
-    # create memory
     if user_id not in user_memory:
 
         current_mode = user_modes[user_id]
@@ -256,54 +293,40 @@ async def chat(message: Message):
             }
         ]
 
-    # ====================================
-    # INTERNET SEARCH PROMPT
-    # ====================================
-
-    internet_prompt = f"""
-Пользователь написал:
-
-{user_text}
-
-Если нужен интернет-поиск —
-ответь максимально актуально.
-
-Если интернет не нужен —
-ответь как обычный AI.
-"""
-
-    # save user message
-    user_memory[user_id].append(
-        {
-            "role": "user",
-            "content": internet_prompt
-        }
-    )
-
     wait_message = await message.answer(
         "🌐 Ищу информацию..."
     )
 
     try:
 
+        internet_data = search_internet(user_text)
+
+        prompt = f"""
+Вопрос пользователя:
+{user_text}
+
+Информация из интернета:
+{internet_data}
+
+Ответь пользователю понятно.
+"""
+
+        user_memory[user_id].append(
+            {
+                "role": "user",
+                "content": prompt
+            }
+        )
+
         response = client.chat.completions.create(
 
             model="openai/gpt-3.5-turbo",
 
-            messages=user_memory[user_id],
-
-            extra_headers={
-                "HTTP-Referer": "https://openrouter.ai",
-                "X-Title": "Telegram AI Bot"
-            }
+            messages=user_memory[user_id]
         )
 
         answer = response.choices[0].message.content
 
-        if not answer:
-            answer = "AI не смог ответить."
-
-        # save answer
         user_memory[user_id].append(
             {
                 "role": "assistant",
