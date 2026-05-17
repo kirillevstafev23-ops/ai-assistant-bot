@@ -16,7 +16,10 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
-    KeyboardButton
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery
 )
 from aiogram.filters import CommandStart
 
@@ -191,7 +194,6 @@ client = OpenAI(
 # ====================================
 
 user_memory = {}
-
 image_waiting_users = set()
 
 
@@ -226,43 +228,92 @@ MODES = {
 
 
 # ====================================
-# MENU
+# INLINE MENU
 # ====================================
 
 reply_menu = ReplyKeyboardMarkup(
     keyboard=[
 
         [
-            KeyboardButton(text="🧠 AI Чат"),
-            KeyboardButton(text="🌐 Интернет")
-        ],
-
-        [
-            KeyboardButton(text="📄 Документ"),
-            KeyboardButton(text="🖼 Фото")
-        ],
-
-        [
-            KeyboardButton(text="🎨 Картинка"),
-            KeyboardButton(text="👨‍💻 Код")
-        ],
-
-        [
-            KeyboardButton(text="✍️ Тексты"),
-            KeyboardButton(text="💰 Бизнес")
-        ],
-
-        [
-            KeyboardButton(text="🧘 Психолог"),
-            KeyboardButton(text="👤 Профиль")
-        ],
-
-        [
-            KeyboardButton(text="🧹 Очистить чат")
+            KeyboardButton(text="🚀 Меню")
         ]
+
     ],
 
     resize_keyboard=True
+)
+
+
+main_inline_menu = InlineKeyboardMarkup(
+    inline_keyboard=[
+
+        [
+            InlineKeyboardButton(
+                text="🧠 AI Чат",
+                callback_data="ai_chat"
+            ),
+
+            InlineKeyboardButton(
+                text="🌐 Интернет",
+                callback_data="internet"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="📄 Документы",
+                callback_data="docs"
+            ),
+
+            InlineKeyboardButton(
+                text="🖼 Фото",
+                callback_data="photo"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="🎨 Картинки",
+                callback_data="image_gen"
+            ),
+
+            InlineKeyboardButton(
+                text="👨‍💻 Код",
+                callback_data="coder"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="✍️ Тексты",
+                callback_data="copywriter"
+            ),
+
+            InlineKeyboardButton(
+                text="💰 Бизнес",
+                callback_data="business"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="🧘 Психолог",
+                callback_data="psychologist"
+            ),
+
+            InlineKeyboardButton(
+                text="👤 Профиль",
+                callback_data="profile"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="🧹 Очистить чат",
+                callback_data="clear_chat"
+            )
+        ]
+    ]
 )
 
 
@@ -323,43 +374,170 @@ async def start(message: Message):
 
 🤖 <b>AI Assistant</b>
 
-Твой умный помощник с AI возможностями.
-
-━━━━━━━━━━━━━━━
-
-🔥 <b>Что умеет бот:</b>
-
-🧠 Решение задач  
-🌐 Поиск в интернете  
-📄 Анализ PDF / DOCX / TXT  
-🖼 Анализ изображений  
-🎨 Генерация картинок
-👨‍💻 Помощь с кодом  
-✍️ Написание текстов  
-💰 Бизнес-идеи  
-🧘 Поддержка и общение  
-
-━━━━━━━━━━━━━━━
-
-⚡ <b>Выберите действие ниже:</b>
+Твой умный AI помощник 🚀
 """
 
     await message.answer(
         text,
-        reply_markup=reply_menu,
+        reply_markup=main_inline_menu,
         parse_mode="HTML"
     )
 
 
 # ====================================
-# PROFILE
+# OPEN MENU
 # ====================================
 
-@dp.message(F.text == "👤 Профиль")
-async def profile(message: Message):
+@dp.message(F.text == "🚀 Меню")
+async def open_menu(message: Message):
 
-    user_id = message.from_user.id
-    name = message.from_user.first_name
+    await message.answer(
+        "🚀 <b>Главное меню</b>",
+        reply_markup=main_inline_menu,
+        parse_mode="HTML"
+    )
+
+
+# ====================================
+# CALLBACKS
+# ====================================
+
+@dp.callback_query(F.data == "ai_chat")
+async def ai_chat_callback(callback: CallbackQuery):
+
+    set_mode_db(
+        callback.from_user.id,
+        "default"
+    )
+
+    await callback.message.answer(
+        "🧠 AI режим включен"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "coder")
+async def coder_callback(callback: CallbackQuery):
+
+    set_mode_db(
+        callback.from_user.id,
+        "coder"
+    )
+
+    await callback.message.answer(
+        "👨‍💻 Режим программиста включен"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "business")
+async def business_callback(callback: CallbackQuery):
+
+    set_mode_db(
+        callback.from_user.id,
+        "business"
+    )
+
+    await callback.message.answer(
+        "💰 Бизнес режим включен"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "psychologist")
+async def psychologist_callback(callback: CallbackQuery):
+
+    set_mode_db(
+        callback.from_user.id,
+        "psychologist"
+    )
+
+    await callback.message.answer(
+        "🧘 Режим психолога включен"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "copywriter")
+async def copywriter_callback(callback: CallbackQuery):
+
+    set_mode_db(
+        callback.from_user.id,
+        "copywriter"
+    )
+
+    await callback.message.answer(
+        "✍️ Режим текстов включен"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "internet")
+async def internet_callback(callback: CallbackQuery):
+
+    await callback.message.answer(
+        "🌐 Напишите запрос для поиска."
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "docs")
+async def docs_callback(callback: CallbackQuery):
+
+    await callback.message.answer(
+        "📄 Отправьте PDF / DOCX / TXT файл."
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "photo")
+async def photo_callback(callback: CallbackQuery):
+
+    await callback.message.answer(
+        "🖼 Отправьте изображение."
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "image_gen")
+async def image_gen_callback(callback: CallbackQuery):
+
+    image_waiting_users.add(
+        callback.from_user.id
+    )
+
+    await callback.message.answer(
+        "🎨 Напишите описание картинки."
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "clear_chat")
+async def clear_callback(callback: CallbackQuery):
+
+    user_memory[callback.from_user.id] = []
+
+    await callback.message.answer(
+        "🧹 История очищена"
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(F.data == "profile")
+async def profile_callback(callback: CallbackQuery):
+
+    user_id = callback.from_user.id
+    name = callback.from_user.first_name
 
     messages_count = get_messages(user_id)
 
@@ -392,10 +570,12 @@ async def profile(message: Message):
 <b>Premium User</b>
 """
 
-    await message.answer(
+    await callback.message.answer(
         text,
         parse_mode="HTML"
     )
+
+    await callback.answer()
 
 
 # ====================================
@@ -431,118 +611,11 @@ async def admin_panel(message: Message):
 
 💬 Сообщений:
 <b>{total_messages}</b>
-
-Команды:
-
-/users
-/broadcast текст
 """
 
     await message.answer(
         text,
         parse_mode="HTML"
-    )
-
-
-# ====================================
-# USERS
-# ====================================
-
-@dp.message(F.text == "/users")
-async def users_list(message: Message):
-
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    cursor.execute(
-        """
-        SELECT user_id, messages
-        FROM users
-        ORDER BY messages DESC
-        LIMIT 20
-        """
-    )
-
-    users = cursor.fetchall()
-
-    text = "👥 <b>ПОЛЬЗОВАТЕЛИ</b>\n\n"
-
-    for user in users:
-
-        text += (
-            f"🆔 <code>{user[0]}</code>\n"
-            f"💬 {user[1]} сообщений\n\n"
-        )
-
-    await message.answer(
-        text,
-        parse_mode="HTML"
-    )
-
-
-# ====================================
-# BROADCAST
-# ====================================
-
-@dp.message(F.text.startswith("/broadcast"))
-async def broadcast(message: Message):
-
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    text_to_send = message.text.replace(
-        "/broadcast",
-        ""
-    ).strip()
-
-    if not text_to_send:
-
-        await message.answer(
-            "❌ Введите текст"
-        )
-
-        return
-
-    cursor.execute(
-        "SELECT user_id FROM users"
-    )
-
-    users = cursor.fetchall()
-
-    success = 0
-
-    for user in users:
-
-        try:
-
-            await bot.send_message(
-                user[0],
-                f"📢 {text_to_send}"
-            )
-
-            success += 1
-
-        except:
-            pass
-
-    await message.answer(
-        f"✅ Отправлено: {success}"
-    )
-
-
-# ====================================
-# IMAGE GENERATION
-# ====================================
-
-@dp.message(F.text == "🎨 Картинка")
-async def image_mode(message: Message):
-
-    image_waiting_users.add(
-        message.from_user.id
-    )
-
-    await message.answer(
-        "🎨 Напишите описание картинки"
     )
 
 
@@ -610,45 +683,30 @@ async def file_handler(message: Message):
                 for para in doc.paragraphs:
                     text += para.text + "\n"
 
-            else:
+            response = client.chat.completions.create(
 
-                await message.answer(
-                    "❌ Поддерживаются PDF / TXT / DOCX"
-                )
+                model="openai/gpt-4o-mini",
 
-                return
-
-        prompt = f"""
-Вот текст файла:
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"""
+Проанализируй файл:
 
 {text[:15000]}
-
-1. Определи тему документа
-2. Сделай краткое содержание
-3. Если это задача —
-реши её пошагово
 """
+                    }
+                ]
+            )
 
-        response = client.chat.completions.create(
+            answer = response.choices[0].message.content
 
-            model="openai/gpt-4o-mini",
-
-            messages=[
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-        )
-
-        answer = response.choices[0].message.content
-
-        await message.answer(answer)
+            await message.answer(answer)
 
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка файла:\n{str(e)}"
+            f"❌ Ошибка:\n{str(e)}"
         )
 
     await wait_message.delete()
@@ -699,12 +757,8 @@ async def image_handler(message: Message):
                             "type": "text",
                             "text": """
 Проанализируй изображение.
-
 Если это задача —
 реши её пошагово.
-
-Если это текст —
-прочитай и перескажи.
 """
                         },
                         {
@@ -725,89 +779,10 @@ async def image_handler(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка изображения:\n{str(e)}"
+            f"❌ Ошибка:\n{str(e)}"
         )
 
     await wait_message.delete()
-
-
-# ====================================
-# BUTTONS
-# ====================================
-
-@dp.message(F.text == "👨‍💻 Код")
-async def code_mode(message: Message):
-
-    set_mode_db(
-        message.from_user.id,
-        "coder"
-    )
-
-    await message.answer(
-        "👨‍💻 Режим программиста включен"
-    )
-
-
-@dp.message(F.text == "💰 Бизнес")
-async def business_mode(message: Message):
-
-    set_mode_db(
-        message.from_user.id,
-        "business"
-    )
-
-    await message.answer(
-        "💰 Бизнес режим включен"
-    )
-
-
-@dp.message(F.text == "🧘 Психолог")
-async def psycho_mode(message: Message):
-
-    set_mode_db(
-        message.from_user.id,
-        "psychologist"
-    )
-
-    await message.answer(
-        "🧘 Режим психолога включен"
-    )
-
-
-@dp.message(F.text == "✍️ Тексты")
-async def copy_mode(message: Message):
-
-    set_mode_db(
-        message.from_user.id,
-        "copywriter"
-    )
-
-    await message.answer(
-        "✍️ Режим копирайтера включен"
-    )
-
-
-@dp.message(F.text == "🧠 AI Чат")
-async def ai_chat(message: Message):
-
-    set_mode_db(
-        message.from_user.id,
-        "default"
-    )
-
-    await message.answer(
-        "🧠 AI режим включен"
-    )
-
-
-@dp.message(F.text == "🧹 Очистить чат")
-async def clear_chat(message: Message):
-
-    user_memory[message.from_user.id] = []
-
-    await message.answer(
-        "🧹 История очищена"
-    )
 
 
 # ====================================
@@ -894,9 +869,6 @@ async def chat(message: Message):
 
 Интернет:
 {internet_data}
-
-Если это задача —
-реши её пошагово.
 """
 
         user_memory[user_id].append(
