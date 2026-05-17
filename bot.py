@@ -81,11 +81,10 @@ def run_web():
     )
 
     app.run(
-    host="0.0.0.0",
-    port=port,
-    threaded=True
+        host="0.0.0.0",
+        port=port,
+        threaded=True
     )
-
 
 # ====================================
 # DATABASE
