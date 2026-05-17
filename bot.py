@@ -394,7 +394,7 @@ main_inline_menu = InlineKeyboardMarkup(
             InlineKeyboardButton(
                 text="🌐 Mini App",
                 web_app={
-                    "url": "https://YOUR-RENDER-URL.onrender.com"
+                    "url": "ai-assistant-bot-production-3183.up.railway.app"
                 }
             )
         ],
