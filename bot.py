@@ -22,7 +22,8 @@ from aiogram.types import (
     Message,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    CallbackQuery
+    CallbackQuery,
+    WebAppInfo
 )
 from aiogram.filters import CommandStart
 
@@ -47,6 +48,13 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 
 
 # ====================================
+# ВСТАВЬ СВОЮ ССЫЛКУ RAILWAY
+# ====================================
+
+WEB_APP_URL = "https://ai-assistant-bot-production-11dd.up.railway.app"
+
+
+# ====================================
 # ADMIN
 # ====================================
 
@@ -68,9 +76,13 @@ def home():
 
 def run_web():
 
+    port = int(
+        os.environ.get("PORT", 8080)
+    )
+
     app.run(
         host="0.0.0.0",
-        port=10000
+        port=port
     )
 
 
@@ -393,9 +405,9 @@ main_inline_menu = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(
                 text="🌐 Mini App",
-                web_app={
-                    "url": "ai-assistant-bot-production-3183.up.railway.app"
-                }
+                web_app=WebAppInfo(
+                    url=WEB_APP_URL
+                )
             )
         ],
 
@@ -879,8 +891,6 @@ async def chat(message: Message):
         return
 
     add_message(user_id)
-
-    current_mode = get_mode(user_id)
 
     messages = load_memory(user_id)
 
