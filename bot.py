@@ -957,17 +957,12 @@ async def chat(message: Message):
 # MAIN
 # ====================================
 
-async def main():
-
-    print("AI бот запущен...")
-
-    web_thread = Thread(target=run_web)
-    web_thread.daemon = True
-    web_thread.start()
-
-    await dp.start_polling(bot)
-
-
 if __name__ == "__main__":
 
-    asyncio.run(main())
+    web_thread = Thread(target=run_web)
+
+    web_thread.daemon = True
+
+    web_thread.start()
+
+    asyncio.run(dp.start_polling(bot))
