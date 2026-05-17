@@ -71,7 +71,11 @@ app = Flask(__name__)
 @app.route("/")
 def home():
 
-    return send_file("webapp.html")
+    return open(
+    "webapp.html",
+    "r",
+    encoding="utf-8"
+).read()
 
 
 def run_web():
