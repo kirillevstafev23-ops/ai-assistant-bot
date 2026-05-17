@@ -3,6 +3,8 @@
 import os
 import asyncio
 import requests
+import tempfile
+import PyPDF2
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -185,7 +187,10 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Теперь бот умеет искать в интернете 🌐",
+        "Бот умеет:\n"
+        "• AI чат\n"
+        "• Интернет поиск 🌐\n"
+        "• Анализ PDF 📄",
         reply_markup=menu
     )
 
@@ -267,6 +272,83 @@ async def new_chat(callback: CallbackQuery):
     )
 
     await callback.answer()
+
+
+# ====================================
+# PDF ANALYSIS
+# ====================================
+
+@dp.message(F.document)
+async def pdf_handler(message: Message):
+
+    document = message.document
+
+    if not document.file_name.endswith(".pdf"):
+
+        await message.answer(
+            "❌ Поддерживаются только PDF файлы."
+        )
+
+        return
+
+    wait_message = await message.answer(
+        "📄 Анализирую PDF..."
+    )
+
+    try:
+
+        file = await bot.get_file(document.file_id)
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".pdf"
+        ) as temp_file:
+
+            await bot.download_file(
+                file.file_path,
+                temp_file.name
+            )
+
+            text = ""
+
+            with open(temp_file.name, "rb") as pdf_file:
+
+                reader = PyPDF2.PdfReader(pdf_file)
+
+                for page in reader.pages:
+                    text += page.extract_text()
+
+        prompt = f"""
+Вот текст PDF документа:
+
+{text[:12000]}
+
+Сделай краткое понятное содержание.
+"""
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-3.5-turbo",
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        await message.answer(answer)
+
+    except Exception as e:
+
+        await message.answer(
+            f"❌ Ошибка PDF:\n{str(e)}"
+        )
+
+    await wait_message.delete()
 
 
 # ====================================
