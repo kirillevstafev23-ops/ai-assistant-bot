@@ -81,8 +81,9 @@ def run_web():
     )
 
     app.run(
-        host="0.0.0.0",
-        port=port
+    host="0.0.0.0",
+    port=port,
+    threaded=True
     )
 
 
@@ -957,9 +958,11 @@ async def main():
 
     print("AI бот запущен...")
 
-    Thread(
-        target=run_web
-    ).start()
+   web_thread = Thread(target=run_web)
+
+web_thread.daemon = True
+
+web_thread.start()
 
     await dp.start_polling(bot)
 
