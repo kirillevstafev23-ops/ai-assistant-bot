@@ -14,11 +14,12 @@ from PIL import Image
 import PyPDF2
 from docx import Document
 
+from flask import Flask, send_file
+from threading import Thread
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     CallbackQuery
@@ -53,11 +54,33 @@ ADMIN_ID = 1739947062
 
 
 # ====================================
+# FLASK WEB APP
+# ====================================
+
+app = Flask(__name__)
+
+
+@app.route("/")
+def home():
+
+    return send_file("webapp.html")
+
+
+def run_web():
+
+    app.run(
+        host="0.0.0.0",
+        port=10000
+    )
+
+
+# ====================================
 # DATABASE
 # ====================================
 
 conn = sqlite3.connect(
-    "database.db"
+    "database.db",
+    check_same_thread=False
 )
 
 cursor = conn.cursor()
@@ -132,8 +155,6 @@ def get_mode(user_id):
 
 def set_mode_db(user_id, mode):
 
-    create_user(user_id)
-
     cursor.execute(
         """
         UPDATE users
@@ -151,8 +172,6 @@ def set_mode_db(user_id, mode):
 
 def add_message(user_id):
 
-    create_user(user_id)
-
     cursor.execute(
         """
         UPDATE users
@@ -166,8 +185,6 @@ def add_message(user_id):
 
 
 def get_messages(user_id):
-
-    create_user(user_id)
 
     cursor.execute(
         """
@@ -307,18 +324,8 @@ MODES = {
 
 
 # ====================================
-# INLINE MENU
+# MENU
 # ====================================
-
-reply_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [
-            KeyboardButton(text="🚀 Меню")
-        ]
-    ],
-    resize_keyboard=True
-)
-
 
 main_inline_menu = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -380,6 +387,15 @@ main_inline_menu = InlineKeyboardMarkup(
             InlineKeyboardButton(
                 text="👤 Профиль",
                 callback_data="profile"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="🌐 Mini App",
+                web_app={
+                    "url": "https://YOUR-RENDER-URL.onrender.com"
+                }
             )
         ],
 
@@ -455,20 +471,6 @@ async def start(message: Message):
 
     await message.answer(
         text,
-        reply_markup=main_inline_menu,
-        parse_mode="HTML"
-    )
-
-
-# ====================================
-# OPEN MENU
-# ====================================
-
-@dp.message(F.text == "🚀 Меню")
-async def open_menu(message: Message):
-
-    await message.answer(
-        "🚀 <b>Главное меню</b>",
         reply_markup=main_inline_menu,
         parse_mode="HTML"
     )
@@ -553,50 +555,6 @@ async def copywriter_callback(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "internet")
-async def internet_callback(callback: CallbackQuery):
-
-    await callback.message.answer(
-        "🌐 Напишите запрос для поиска."
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "docs")
-async def docs_callback(callback: CallbackQuery):
-
-    await callback.message.answer(
-        "📄 Отправьте PDF / DOCX / TXT файл."
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "photo")
-async def photo_callback(callback: CallbackQuery):
-
-    await callback.message.answer(
-        "🖼 Отправьте изображение."
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "image_gen")
-async def image_gen_callback(callback: CallbackQuery):
-
-    image_waiting_users.add(
-        callback.from_user.id
-    )
-
-    await callback.message.answer(
-        "🎨 Напишите описание картинки."
-    )
-
-    await callback.answer()
-
-
 @dp.callback_query(F.data == "clear_chat")
 async def clear_callback(callback: CallbackQuery):
 
@@ -619,25 +577,16 @@ async def profile_callback(callback: CallbackQuery):
 
     current_mode = get_mode(user_id)
 
-    mode_names = {
-        "default": "🧠 AI Чат",
-        "coder": "👨‍💻 Код",
-        "business": "💰 Бизнес",
-        "psychologist": "🧘 Психолог",
-        "copywriter": "✍️ Тексты"
-    }
-
     text = f"""
-╔══════════════╗
-      👤 ПРОФИЛЬ
-╚══════════════╝
+👤 <b>ПРОФИЛЬ</b>
 
 ✨ Имя: <b>{name}</b>
 
-🆔 ID: <code>{user_id}</code>
+🆔 ID:
+<code>{user_id}</code>
 
 🧠 Режим:
-<b>{mode_names.get(current_mode)}</b>
+<b>{current_mode}</b>
 
 📨 Сообщений:
 <b>{messages_count}</b>
@@ -652,6 +601,44 @@ async def profile_callback(callback: CallbackQuery):
     )
 
     await callback.answer()
+
+
+# ====================================
+# WEB APP DATA
+# ====================================
+
+@dp.message(F.web_app_data)
+async def web_app_handler(message: Message):
+
+    data = message.web_app_data.data
+
+    if data == "ai_chat":
+
+        await message.answer(
+            "🧠 AI Chat открыт"
+        )
+
+    elif data == "image":
+
+        image_waiting_users.add(
+            message.from_user.id
+        )
+
+        await message.answer(
+            "🎨 Напиши описание картинки"
+        )
+
+    elif data == "docs":
+
+        await message.answer(
+            "📄 Отправь документ"
+        )
+
+    elif data == "internet":
+
+        await message.answer(
+            "🌐 Напиши запрос"
+        )
 
 
 # ====================================
@@ -697,19 +684,12 @@ async def image_handler(message: Message):
         prompt = f"""
 Ты получил изображение.
 
-Текст с OCR:
+OCR текст:
 
 {extracted_text}
 
-Твоя задача:
-
-1. Определи предмет
-2. Если это задача —
-реши её пошагово
-3. Если это конспект —
-объясни простыми словами
-4. Если текста мало —
-проанализируй само изображение
+Если это задача —
+реши пошагово.
 """
 
         response = client.chat.completions.create(
@@ -742,7 +722,7 @@ async def image_handler(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка изображения:\n{str(e)}"
+            f"❌ Ошибка:\n{str(e)}"
         )
 
     await wait_message.delete()
@@ -966,6 +946,10 @@ async def chat(message: Message):
 async def main():
 
     print("AI бот запущен...")
+
+    Thread(
+        target=run_web
+    ).start()
 
     await dp.start_polling(bot)
 
