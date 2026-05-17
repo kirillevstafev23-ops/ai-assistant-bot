@@ -4,3 +4,4 @@ aiohttp
 pydub
 ffmpeg-python
 python-dotenv
+duckduckgo-search
