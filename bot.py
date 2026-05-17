@@ -7,6 +7,8 @@ import tempfile
 import base64
 import sqlite3
 
+from io import BytesIO
+
 import PyPDF2
 from docx import Document
 
@@ -35,12 +37,14 @@ TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"
 )
 
+HF_TOKEN = os.getenv("HF_TOKEN")
+
 
 # ====================================
 # ADMIN
 # ====================================
 
-ADMIN_ID = 1739947062
+ADMIN_ID = 123456789
 
 
 # ====================================
@@ -188,6 +192,8 @@ client = OpenAI(
 
 user_memory = {}
 
+image_waiting_users = set()
+
 
 # ====================================
 # AI MODES
@@ -237,18 +243,22 @@ reply_menu = ReplyKeyboardMarkup(
         ],
 
         [
-            KeyboardButton(text="👨‍💻 Код"),
-            KeyboardButton(text="✍️ Тексты")
+            KeyboardButton(text="🎨 Картинка"),
+            KeyboardButton(text="👨‍💻 Код")
         ],
 
         [
-            KeyboardButton(text="💰 Бизнес"),
-            KeyboardButton(text="🧘 Психолог")
+            KeyboardButton(text="✍️ Тексты"),
+            KeyboardButton(text="💰 Бизнес")
         ],
 
         [
-            KeyboardButton(text="🧹 Очистить чат"),
+            KeyboardButton(text="🧘 Психолог"),
             KeyboardButton(text="👤 Профиль")
+        ],
+
+        [
+            KeyboardButton(text="🧹 Очистить чат")
         ]
     ],
 
@@ -323,6 +333,7 @@ async def start(message: Message):
 🌐 Поиск в интернете  
 📄 Анализ PDF / DOCX / TXT  
 🖼 Анализ изображений  
+🎨 Генерация картинок
 👨‍💻 Помощь с кодом  
 ✍️ Написание текстов  
 💰 Бизнес-идеи  
@@ -379,10 +390,6 @@ async def profile(message: Message):
 
 🚀 Статус:
 <b>Premium User</b>
-
-━━━━━━━━━━━━━━━
-
-🤖 AI Assistant
 """
 
     await message.answer(
@@ -419,21 +426,16 @@ async def admin_panel(message: Message):
     text = f"""
 👑 <b>ADMIN PANEL</b>
 
-━━━━━━━━━━━━━━━
-
 👥 Пользователей:
 <b>{users_count}</b>
 
 💬 Сообщений:
 <b>{total_messages}</b>
 
-━━━━━━━━━━━━━━━
-
 Команды:
 
-/users — список пользователей
-
-/broadcast текст — рассылка
+/users
+/broadcast текст
 """
 
     await message.answer(
@@ -443,7 +445,7 @@ async def admin_panel(message: Message):
 
 
 # ====================================
-# USERS LIST
+# USERS
 # ====================================
 
 @dp.message(F.text == "/users")
@@ -463,7 +465,7 @@ async def users_list(message: Message):
 
     users = cursor.fetchall()
 
-    text = "👥 <b>ТОП ПОЛЬЗОВАТЕЛЕЙ</b>\n\n"
+    text = "👥 <b>ПОЛЬЗОВАТЕЛИ</b>\n\n"
 
     for user in users:
 
@@ -496,7 +498,7 @@ async def broadcast(message: Message):
     if not text_to_send:
 
         await message.answer(
-            "❌ Введите текст рассылки"
+            "❌ Введите текст"
         )
 
         return
@@ -525,6 +527,22 @@ async def broadcast(message: Message):
 
     await message.answer(
         f"✅ Отправлено: {success}"
+    )
+
+
+# ====================================
+# IMAGE GENERATION
+# ====================================
+
+@dp.message(F.text == "🎨 Картинка")
+async def image_mode(message: Message):
+
+    image_waiting_users.add(
+        message.from_user.id
+    )
+
+    await message.answer(
+        "🎨 Напишите описание картинки"
     )
 
 
@@ -609,8 +627,6 @@ async def file_handler(message: Message):
 2. Сделай краткое содержание
 3. Если это задача —
 реши её пошагово
-4. Если это обучение —
-объясни простым языком
 """
 
         response = client.chat.completions.create(
@@ -682,35 +698,13 @@ async def image_handler(message: Message):
                         {
                             "type": "text",
                             "text": """
-Внимательно проанализируй изображение.
+Проанализируй изображение.
 
-1. Определи предмет:
-- физика
-- математика
-- химия
-- геометрия
-- программирование
-- текст
-- документ
-- таблица
-- другое
+Если это задача —
+реши её пошагово.
 
-2. Если это школьная или университетская задача:
-- реши именно ту задачу, которая на изображении
-- НЕ придумывай свои примеры
-- используй данные только с картинки
-- объясняй решение пошагово
-
-3. Если есть формулы —
-обязательно используй их.
-
-4. Если на фото текст —
-прочитай и кратко перескажи.
-
-5. Если задача по физике —
-используй физические формулы и законы.
-
-6. Не придумывай задания, которых нет на изображении.
+Если это текст —
+прочитай и перескажи.
 """
                         },
                         {
@@ -755,7 +749,7 @@ async def code_mode(message: Message):
 
 
 @dp.message(F.text == "💰 Бизнес")
-async def business_text_mode(message: Message):
+async def business_mode(message: Message):
 
     set_mode_db(
         message.from_user.id,
@@ -802,7 +796,7 @@ async def ai_chat(message: Message):
     )
 
     await message.answer(
-        "🧠 Обычный AI режим включен"
+        "🧠 AI режим включен"
     )
 
 
@@ -816,32 +810,8 @@ async def clear_chat(message: Message):
     )
 
 
-@dp.message(F.text == "🌐 Интернет")
-async def internet_info(message: Message):
-
-    await message.answer(
-        "🌐 Просто отправьте запрос.\n\nНапример:\n• цена биткоина\n• новости AI\n• курс доллара"
-    )
-
-
-@dp.message(F.text == "📄 Документ")
-async def docs_info(message: Message):
-
-    await message.answer(
-        "📄 Отправьте PDF, DOCX или TXT файл."
-    )
-
-
-@dp.message(F.text == "🖼 Фото")
-async def photo_info(message: Message):
-
-    await message.answer(
-        "🖼 Отправьте изображение для анализа."
-    )
-
-
 # ====================================
-# CHAT
+# MAIN CHAT
 # ====================================
 
 @dp.message()
@@ -849,6 +819,53 @@ async def chat(message: Message):
 
     user_id = message.from_user.id
     user_text = message.text
+
+    if user_id in image_waiting_users:
+
+        wait_message = await message.answer(
+            "🎨 Генерирую картинку..."
+        )
+
+        try:
+
+            API_URL = (
+                "https://api-inference.huggingface.co/models/"
+                "stabilityai/stable-diffusion-xl-base-1.0"
+            )
+
+            headers = {
+                "Authorization": f"Bearer {HF_TOKEN}"
+            }
+
+            response = requests.post(
+                API_URL,
+                headers=headers,
+                json={
+                    "inputs": user_text
+                },
+                timeout=120
+            )
+
+            image_bytes = response.content
+
+            image_stream = BytesIO(image_bytes)
+
+            await message.answer_photo(
+                image_stream,
+                caption=f"🎨 {user_text}"
+            )
+
+        except Exception as e:
+
+            await message.answer(
+                f"❌ Ошибка:\n{str(e)}"
+            )
+
+        image_waiting_users.remove(user_id)
+
+        await wait_message.delete()
+
+        return
 
     add_message(user_id)
 
@@ -872,20 +889,14 @@ async def chat(message: Message):
         internet_data = search_internet(user_text)
 
         prompt = f"""
-Вопрос пользователя:
+Вопрос:
 {user_text}
 
-Информация из интернета:
+Интернет:
 {internet_data}
 
 Если это задача —
 реши её пошагово.
-
-Если это обучение —
-объясни просто и понятно.
-
-Не придумывай примеры,
-если пользователь их не отправлял.
 """
 
         user_memory[user_id].append(
