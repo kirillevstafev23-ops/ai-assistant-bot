@@ -6,7 +6,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
-   CallbackQuery,
+    CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton
 )
@@ -256,16 +256,32 @@ async def chat(message: Message):
             }
         ]
 
+    # ====================================
+    # INTERNET SEARCH PROMPT
+    # ====================================
+
+    internet_prompt = f"""
+Пользователь написал:
+
+{user_text}
+
+Если нужен интернет-поиск —
+ответь максимально актуально.
+
+Если интернет не нужен —
+ответь как обычный AI.
+"""
+
     # save user message
     user_memory[user_id].append(
         {
             "role": "user",
-            "content": user_text
+            "content": internet_prompt
         }
     )
 
     wait_message = await message.answer(
-        "💭 Думаю..."
+        "🌐 Ищу информацию..."
     )
 
     try:
@@ -274,7 +290,12 @@ async def chat(message: Message):
 
             model="openai/gpt-3.5-turbo",
 
-            messages=user_memory[user_id]
+            messages=user_memory[user_id],
+
+            extra_headers={
+                "HTTP-Referer": "https://openrouter.ai",
+                "X-Title": "Telegram AI Bot"
+            }
         )
 
         answer = response.choices[0].message.content
