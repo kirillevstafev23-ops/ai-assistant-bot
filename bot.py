@@ -957,14 +957,13 @@ async def main():
 
     print("AI бот запущен...")
 
-   web_thread = Thread(target=run_web)
-
-web_thread.daemon = True
-
-web_thread.start()
+    web_thread = Thread(target=run_web)
+    web_thread.daemon = True
+    web_thread.start()
 
     await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())
