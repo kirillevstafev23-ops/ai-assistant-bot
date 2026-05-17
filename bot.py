@@ -62,6 +62,7 @@ client = OpenAI(
 
 user_memory = {}
 user_modes = {}
+user_stats = {}
 
 
 # ====================================
@@ -167,7 +168,8 @@ reply_menu = ReplyKeyboardMarkup(
         ],
 
         [
-            KeyboardButton(text="🧹 Очистить чат")
+            KeyboardButton(text="🧹 Очистить чат"),
+            KeyboardButton(text="👤 Профиль")
         ]
     ],
 
@@ -258,91 +260,63 @@ async def start(message: Message):
 
 
 # ====================================
-# SET MODE
+# USER PROFILE
 # ====================================
 
-async def set_mode(
-    callback: CallbackQuery,
-    mode_name: str
-):
+@dp.message(F.text == "👤 Профиль")
+async def profile(message: Message):
 
-    user_id = callback.from_user.id
+    user_id = message.from_user.id
+    name = message.from_user.first_name
 
-    user_modes[user_id] = mode_name
+    if user_id not in user_stats:
 
-    user_memory[user_id] = [
-        {
-            "role": "system",
-            "content": MODES[mode_name]
+        user_stats[user_id] = {
+            "messages": 0
         }
-    ]
 
-    titles = {
-        "coder": "👨‍💻 Программист",
-        "business": "💰 Бизнес",
-        "psychologist": "🧠 Психолог",
-        "copywriter": "✍️ Копирайтер"
-    }
-
-    await callback.message.answer(
-        f"✨ <b>Режим активирован:</b>\n\n{titles[mode_name]}",
-        parse_mode="HTML"
-    )
-
-    await callback.answer()
-
-
-# ====================================
-# MODE BUTTONS
-# ====================================
-
-@dp.callback_query(F.data == "coder")
-async def coder_mode(callback: CallbackQuery):
-    await set_mode(callback, "coder")
-
-
-@dp.callback_query(F.data == "business")
-async def business_mode(callback: CallbackQuery):
-    await set_mode(callback, "business")
-
-
-@dp.callback_query(F.data == "psychologist")
-async def psychologist_mode(callback: CallbackQuery):
-    await set_mode(callback, "psychologist")
-
-
-@dp.callback_query(F.data == "copywriter")
-async def copywriter_mode(callback: CallbackQuery):
-    await set_mode(callback, "copywriter")
-
-
-# ====================================
-# NEW CHAT
-# ====================================
-
-@dp.callback_query(F.data == "new_chat")
-async def new_chat(callback: CallbackQuery):
-
-    user_id = callback.from_user.id
+    messages_count = user_stats[user_id]["messages"]
 
     current_mode = user_modes.get(
         user_id,
         "default"
     )
 
-    user_memory[user_id] = [
-        {
-            "role": "system",
-            "content": MODES[current_mode]
-        }
-    ]
+    mode_names = {
+        "default": "🧠 AI Чат",
+        "coder": "👨‍💻 Код",
+        "business": "💰 Бизнес",
+        "psychologist": "🧘 Психолог",
+        "copywriter": "✍️ Тексты"
+    }
 
-    await callback.message.answer(
-        "🧹 <b>История диалога очищена</b>",
+    text = f"""
+╔══════════════╗
+      👤 ПРОФИЛЬ
+╚══════════════╝
+
+✨ Имя: <b>{name}</b>
+
+🆔 ID: <code>{user_id}</code>
+
+🧠 Режим:
+<b>{mode_names.get(current_mode)}</b>
+
+📨 Сообщений:
+<b>{messages_count}</b>
+
+🚀 Статус:
+<b>Premium User</b>
+
+━━━━━━━━━━━━━━━
+
+🤖 AI Assistant
+"""
+
+    await message.answer(
+        text,
         parse_mode="HTML"
     )
-
-    await callback.answer()
 
 
 # ====================================
@@ -651,6 +625,14 @@ async def chat(message: Message):
 
     user_id = message.from_user.id
     user_text = message.text
+
+    if user_id not in user_stats:
+
+        user_stats[user_id] = {
+            "messages": 0
+        }
+
+    user_stats[user_id]["messages"] += 1
 
     if user_id not in user_modes:
         user_modes[user_id] = "default"
