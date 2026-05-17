@@ -6,8 +6,10 @@ import requests
 import tempfile
 import base64
 import sqlite3
+import pytesseract
 
 from io import BytesIO
+from PIL import Image
 
 import PyPDF2
 from docx import Document
@@ -47,7 +49,7 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # ADMIN
 # ====================================
 
-ADMIN_ID =  1739947062
+ADMIN_ID = 1739947062
 
 
 # ====================================
@@ -653,6 +655,100 @@ async def profile_callback(callback: CallbackQuery):
 
 
 # ====================================
+# IMAGE ANALYSIS + OCR
+# ====================================
+
+@dp.message(F.photo)
+async def image_handler(message: Message):
+
+    wait_message = await message.answer(
+        "🖼 Анализирую изображение..."
+    )
+
+    try:
+
+        photo = message.photo[-1]
+
+        file = await bot.get_file(photo.file_id)
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".jpg"
+        ) as temp_file:
+
+            await bot.download_file(
+                file.file_path,
+                temp_file.name
+            )
+
+            image = Image.open(temp_file.name)
+
+            extracted_text = pytesseract.image_to_string(
+                image,
+                lang="eng+rus"
+            )
+
+            with open(temp_file.name, "rb") as image_file:
+
+                base64_image = base64.b64encode(
+                    image_file.read()
+                ).decode("utf-8")
+
+        prompt = f"""
+Ты получил изображение.
+
+Текст с OCR:
+
+{extracted_text}
+
+Твоя задача:
+
+1. Определи предмет
+2. Если это задача —
+реши её пошагово
+3. Если это конспект —
+объясни простыми словами
+4. Если текста мало —
+проанализируй само изображение
+"""
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-4o-mini",
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
+                }
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        await message.answer(answer)
+
+    except Exception as e:
+
+        await message.answer(
+            f"❌ Ошибка изображения:\n{str(e)}"
+        )
+
+    await wait_message.delete()
+
+
+# ====================================
 # FILE ANALYSIS
 # ====================================
 
@@ -735,79 +831,6 @@ async def file_handler(message: Message):
             answer = response.choices[0].message.content
 
             await message.answer(answer)
-
-    except Exception as e:
-
-        await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
-        )
-
-    await wait_message.delete()
-
-
-# ====================================
-# IMAGE ANALYSIS
-# ====================================
-
-@dp.message(F.photo)
-async def image_handler(message: Message):
-
-    wait_message = await message.answer(
-        "🖼 Анализирую изображение..."
-    )
-
-    try:
-
-        photo = message.photo[-1]
-
-        file = await bot.get_file(photo.file_id)
-
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".jpg"
-        ) as temp_file:
-
-            await bot.download_file(
-                file.file_path,
-                temp_file.name
-            )
-
-            with open(temp_file.name, "rb") as image_file:
-
-                base64_image = base64.b64encode(
-                    image_file.read()
-                ).decode("utf-8")
-
-        response = client.chat.completions.create(
-
-            model="openai/gpt-4o-mini",
-
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": """
-Проанализируй изображение.
-Если это задача —
-реши её пошагово.
-"""
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
-                    ]
-                }
-            ]
-        )
-
-        answer = response.choices[0].message.content
-
-        await message.answer(answer)
 
     except Exception as e:
 
