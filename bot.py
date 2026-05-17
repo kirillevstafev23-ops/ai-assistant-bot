@@ -14,7 +14,9 @@ from aiogram.types import (
     Message,
     CallbackQuery,
     InlineKeyboardMarkup,
-    InlineKeyboardButton
+    InlineKeyboardButton,
+    ReplyKeyboardMarkup,
+    KeyboardButton
 )
 from aiogram.filters import CommandStart
 
@@ -93,7 +95,7 @@ MODES = {
 
 
 # ====================================
-# MENU
+# INLINE MENU
 # ====================================
 
 menu = InlineKeyboardMarkup(
@@ -134,6 +136,42 @@ menu = InlineKeyboardMarkup(
             )
         ]
     ]
+)
+
+
+# ====================================
+# REPLY MENU
+# ====================================
+
+reply_menu = ReplyKeyboardMarkup(
+    keyboard=[
+
+        [
+            KeyboardButton(text="🧠 AI Чат"),
+            KeyboardButton(text="🌐 Интернет")
+        ],
+
+        [
+            KeyboardButton(text="📄 Документ"),
+            KeyboardButton(text="🖼 Фото")
+        ],
+
+        [
+            KeyboardButton(text="👨‍💻 Код"),
+            KeyboardButton(text="✍️ Тексты")
+        ],
+
+        [
+            KeyboardButton(text="💰 Бизнес"),
+            KeyboardButton(text="🧘 Психолог")
+        ],
+
+        [
+            KeyboardButton(text="🧹 Очистить чат")
+        ]
+    ],
+
+    resize_keyboard=True
 )
 
 
@@ -185,15 +223,37 @@ def search_internet(query):
 @dp.message(CommandStart())
 async def start(message: Message):
 
+    user_name = message.from_user.first_name
+
+    text = f"""
+✨ <b>Добро пожаловать, {user_name}!</b>
+
+🤖 <b>AI Assistant</b>
+
+Твой умный помощник с AI возможностями.
+
+━━━━━━━━━━━━━━━
+
+🔥 <b>Что умеет бот:</b>
+
+🧠 Решение задач  
+🌐 Поиск в интернете  
+📄 Анализ PDF / DOCX / TXT  
+🖼 Анализ изображений  
+👨‍💻 Помощь с кодом  
+✍️ Написание текстов  
+💰 Бизнес-идеи  
+🧘 Поддержка и общение  
+
+━━━━━━━━━━━━━━━
+
+⚡ <b>Выберите действие ниже:</b>
+"""
+
     await message.answer(
-        "🤖 AI Assistant\n\n"
-        "Возможности:\n"
-        "• AI чат\n"
-        "• Интернет 🌐\n"
-        "• PDF/DOCX/TXT 📄\n"
-        "• Анализ фото 🖼\n"
-        "• Решение задач 🧠",
-        reply_markup=menu
+        text,
+        reply_markup=reply_menu,
+        parse_mode="HTML"
     )
 
 
@@ -217,8 +277,16 @@ async def set_mode(
         }
     ]
 
+    titles = {
+        "coder": "👨‍💻 Программист",
+        "business": "💰 Бизнес",
+        "psychologist": "🧠 Психолог",
+        "copywriter": "✍️ Копирайтер"
+    }
+
     await callback.message.answer(
-        f"✅ Режим: {mode_name}"
+        f"✨ <b>Режим активирован:</b>\n\n{titles[mode_name]}",
+        parse_mode="HTML"
     )
 
     await callback.answer()
@@ -270,7 +338,8 @@ async def new_chat(callback: CallbackQuery):
     ]
 
     await callback.message.answer(
-        "🧹 История очищена"
+        "🧹 <b>История диалога очищена</b>",
+        parse_mode="HTML"
     )
 
     await callback.answer()
@@ -309,7 +378,6 @@ async def file_handler(message: Message):
 
             text = ""
 
-            # PDF
             if suffix == ".pdf":
 
                 with open(temp_file.name, "rb") as pdf_file:
@@ -323,7 +391,6 @@ async def file_handler(message: Message):
                         if extracted:
                             text += extracted
 
-            # TXT
             elif suffix == ".txt":
 
                 with open(
@@ -335,7 +402,6 @@ async def file_handler(message: Message):
 
                     text = txt_file.read()
 
-            # DOCX
             elif suffix == ".docx":
 
                 doc = Document(temp_file.name)
@@ -362,7 +428,6 @@ async def file_handler(message: Message):
 реши её пошагово
 4. Если это обучение —
 объясни простым языком
-5. Не придумывай данные
 """
 
         response = client.chat.completions.create(
@@ -487,6 +552,94 @@ async def image_handler(message: Message):
         )
 
     await wait_message.delete()
+
+
+# ====================================
+# BUTTON HANDLERS
+# ====================================
+
+@dp.message(F.text == "👨‍💻 Код")
+async def code_mode(message: Message):
+
+    user_modes[message.from_user.id] = "coder"
+
+    await message.answer(
+        "👨‍💻 Режим программиста включен"
+    )
+
+
+@dp.message(F.text == "💰 Бизнес")
+async def business_text_mode(message: Message):
+
+    user_modes[message.from_user.id] = "business"
+
+    await message.answer(
+        "💰 Бизнес режим включен"
+    )
+
+
+@dp.message(F.text == "🧘 Психолог")
+async def psycho_mode(message: Message):
+
+    user_modes[message.from_user.id] = "psychologist"
+
+    await message.answer(
+        "🧘 Режим психолога включен"
+    )
+
+
+@dp.message(F.text == "✍️ Тексты")
+async def copy_mode(message: Message):
+
+    user_modes[message.from_user.id] = "copywriter"
+
+    await message.answer(
+        "✍️ Режим копирайтера включен"
+    )
+
+
+@dp.message(F.text == "🧹 Очистить чат")
+async def clear_chat(message: Message):
+
+    user_memory[message.from_user.id] = []
+
+    await message.answer(
+        "🧹 История очищена"
+    )
+
+
+@dp.message(F.text == "🌐 Интернет")
+async def internet_info(message: Message):
+
+    await message.answer(
+        "🌐 Просто отправьте запрос.\n\nНапример:\n• цена биткоина\n• новости AI\n• курс доллара"
+    )
+
+
+@dp.message(F.text == "📄 Документ")
+async def docs_info(message: Message):
+
+    await message.answer(
+        "📄 Отправьте PDF, DOCX или TXT файл."
+    )
+
+
+@dp.message(F.text == "🖼 Фото")
+async def photo_info(message: Message):
+
+    await message.answer(
+        "🖼 Отправьте изображение для анализа."
+    )
+
+
+@dp.message(F.text == "🧠 AI Чат")
+async def ai_chat(message: Message):
+
+    user_modes[message.from_user.id] = "default"
+
+    await message.answer(
+        "🧠 Обычный AI режим включен"
+    )
 
 
 # ====================================
