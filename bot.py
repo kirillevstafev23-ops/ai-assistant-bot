@@ -47,7 +47,7 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # ADMIN
 # ====================================
 
-ADMIN_ID = 1739947062
+ADMIN_ID =  1739947062
 
 
 # ====================================
@@ -66,6 +66,16 @@ CREATE TABLE IF NOT EXISTS users (
     user_id INTEGER PRIMARY KEY,
     mode TEXT,
     messages INTEGER
+)
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS memory (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    role TEXT,
+    content TEXT
 )
 """)
 
@@ -193,8 +203,75 @@ client = OpenAI(
 # MEMORY
 # ====================================
 
-user_memory = {}
 image_waiting_users = set()
+
+
+def save_memory(user_id, role, content):
+
+    cursor.execute(
+        """
+        INSERT INTO memory
+        (user_id, role, content)
+
+        VALUES (?, ?, ?)
+        """,
+        (
+            user_id,
+            role,
+            content
+        )
+    )
+
+    conn.commit()
+
+
+def load_memory(user_id):
+
+    cursor.execute(
+        """
+        SELECT role, content
+        FROM memory
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 20
+        """,
+        (user_id,)
+    )
+
+    rows = cursor.fetchall()
+
+    rows.reverse()
+
+    memory = []
+
+    current_mode = get_mode(user_id)
+
+    memory.append({
+        "role": "system",
+        "content": MODES[current_mode]
+    })
+
+    for row in rows:
+
+        memory.append({
+            "role": row[0],
+            "content": row[1]
+        })
+
+    return memory
+
+
+def clear_memory(user_id):
+
+    cursor.execute(
+        """
+        DELETE FROM memory
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    conn.commit()
 
 
 # ====================================
@@ -233,13 +310,10 @@ MODES = {
 
 reply_menu = ReplyKeyboardMarkup(
     keyboard=[
-
         [
             KeyboardButton(text="🚀 Меню")
         ]
-
     ],
-
     resize_keyboard=True
 )
 
@@ -524,7 +598,7 @@ async def image_gen_callback(callback: CallbackQuery):
 @dp.callback_query(F.data == "clear_chat")
 async def clear_callback(callback: CallbackQuery):
 
-    user_memory[callback.from_user.id] = []
+    clear_memory(callback.from_user.id)
 
     await callback.message.answer(
         "🧹 История очищена"
@@ -576,47 +650,6 @@ async def profile_callback(callback: CallbackQuery):
     )
 
     await callback.answer()
-
-
-# ====================================
-# ADMIN PANEL
-# ====================================
-
-@dp.message(F.text == "/admin")
-async def admin_panel(message: Message):
-
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    cursor.execute(
-        "SELECT COUNT(*) FROM users"
-    )
-
-    users_count = cursor.fetchone()[0]
-
-    cursor.execute(
-        "SELECT SUM(messages) FROM users"
-    )
-
-    total_messages = cursor.fetchone()[0]
-
-    if total_messages is None:
-        total_messages = 0
-
-    text = f"""
-👑 <b>ADMIN PANEL</b>
-
-👥 Пользователей:
-<b>{users_count}</b>
-
-💬 Сообщений:
-<b>{total_messages}</b>
-"""
-
-    await message.answer(
-        text,
-        parse_mode="HTML"
-    )
 
 
 # ====================================
@@ -846,14 +879,7 @@ async def chat(message: Message):
 
     current_mode = get_mode(user_id)
 
-    if user_id not in user_memory:
-
-        user_memory[user_id] = [
-            {
-                "role": "system",
-                "content": MODES[current_mode]
-            }
-        ]
+    messages = load_memory(user_id)
 
     wait_message = await message.answer(
         "🧠 Думаю..."
@@ -871,7 +897,13 @@ async def chat(message: Message):
 {internet_data}
 """
 
-        user_memory[user_id].append(
+        save_memory(
+            user_id,
+            "user",
+            prompt
+        )
+
+        messages.append(
             {
                 "role": "user",
                 "content": prompt
@@ -882,16 +914,15 @@ async def chat(message: Message):
 
             model="openai/gpt-4o-mini",
 
-            messages=user_memory[user_id]
+            messages=messages
         )
 
         answer = response.choices[0].message.content
 
-        user_memory[user_id].append(
-            {
-                "role": "assistant",
-                "content": answer
-            }
+        save_memory(
+            user_id,
+            "assistant",
+            answer
         )
 
         await message.answer(answer)
