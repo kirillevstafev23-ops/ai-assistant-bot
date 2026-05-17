@@ -8,7 +8,6 @@ import base64
 
 import PyPDF2
 from docx import Document
-from PIL import Image
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -71,27 +70,24 @@ MODES = {
 
     "default": (
         "Ты мощный AI ассистент. "
-        "Помогай пользователю максимально полезно."
+        "Помогай максимально полезно."
     ),
 
     "coder": (
         "Ты опытный программист. "
-        "Помогай с кодом и объясняй просто."
+        "Помогай с кодом."
     ),
 
     "business": (
-        "Ты бизнес-консультант. "
-        "Помогай с идеями и заработком."
+        "Ты бизнес-консультант."
     ),
 
     "psychologist": (
-        "Ты спокойный психолог. "
-        "Поддерживай пользователя."
+        "Ты спокойный психолог."
     ),
 
     "copywriter": (
-        "Ты профессиональный копирайтер. "
-        "Пиши сильные тексты."
+        "Ты профессиональный копирайтер."
     )
 }
 
@@ -321,7 +317,10 @@ async def file_handler(message: Message):
                     reader = PyPDF2.PdfReader(pdf_file)
 
                     for page in reader.pages:
-                        text += page.extract_text()
+                        extracted = page.extract_text()
+
+                        if extracted:
+                            text += extracted
 
             # TXT
             elif suffix == ".txt":
@@ -363,7 +362,7 @@ async def file_handler(message: Message):
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-3.5-turbo",
+            model="openai/gpt-4o-mini",
 
             messages=[
                 {
@@ -414,22 +413,34 @@ async def image_handler(message: Message):
             )
 
             with open(temp_file.name, "rb") as image_file:
-                image_base64 = base64.b64encode(
+
+                base64_image = base64.b64encode(
                     image_file.read()
                 ).decode("utf-8")
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-3.5-turbo",
+            model="openai/gpt-4o-mini",
 
             messages=[
                 {
                     "role": "user",
-                    "content": (
-                        "Опиши изображение. "
-                        "Если это задача — реши её. "
-                        "Если на фото есть текст — прочитай его."
-                    )
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Опиши изображение. "
+                                "Если это задача — реши её пошагово. "
+                                "Если на фото есть текст — прочитай его."
+                            )
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
+                        }
+                    ]
                 }
             ]
         )
@@ -502,7 +513,7 @@ async def chat(message: Message):
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-3.5-turbo",
+            model="openai/gpt-4o-mini",
 
             messages=user_memory[user_id]
         )
