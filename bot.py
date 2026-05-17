@@ -13,9 +13,6 @@ from docx import Document
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
-    CallbackQuery,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
     ReplyKeyboardMarkup,
     KeyboardButton
 )
@@ -37,6 +34,13 @@ OPENROUTER_API_KEY = os.getenv(
 TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"
 )
+
+
+# ====================================
+# ADMIN
+# ====================================
+
+ADMIN_ID = 1739947062
 
 
 # ====================================
@@ -216,7 +220,7 @@ MODES = {
 
 
 # ====================================
-# REPLY MENU
+# MENU
 # ====================================
 
 reply_menu = ReplyKeyboardMarkup(
@@ -384,6 +388,143 @@ async def profile(message: Message):
     await message.answer(
         text,
         parse_mode="HTML"
+    )
+
+
+# ====================================
+# ADMIN PANEL
+# ====================================
+
+@dp.message(F.text == "/admin")
+async def admin_panel(message: Message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    cursor.execute(
+        "SELECT COUNT(*) FROM users"
+    )
+
+    users_count = cursor.fetchone()[0]
+
+    cursor.execute(
+        "SELECT SUM(messages) FROM users"
+    )
+
+    total_messages = cursor.fetchone()[0]
+
+    if total_messages is None:
+        total_messages = 0
+
+    text = f"""
+👑 <b>ADMIN PANEL</b>
+
+━━━━━━━━━━━━━━━
+
+👥 Пользователей:
+<b>{users_count}</b>
+
+💬 Сообщений:
+<b>{total_messages}</b>
+
+━━━━━━━━━━━━━━━
+
+Команды:
+
+/users — список пользователей
+
+/broadcast текст — рассылка
+"""
+
+    await message.answer(
+        text,
+        parse_mode="HTML"
+    )
+
+
+# ====================================
+# USERS LIST
+# ====================================
+
+@dp.message(F.text == "/users")
+async def users_list(message: Message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    cursor.execute(
+        """
+        SELECT user_id, messages
+        FROM users
+        ORDER BY messages DESC
+        LIMIT 20
+        """
+    )
+
+    users = cursor.fetchall()
+
+    text = "👥 <b>ТОП ПОЛЬЗОВАТЕЛЕЙ</b>\n\n"
+
+    for user in users:
+
+        text += (
+            f"🆔 <code>{user[0]}</code>\n"
+            f"💬 {user[1]} сообщений\n\n"
+        )
+
+    await message.answer(
+        text,
+        parse_mode="HTML"
+    )
+
+
+# ====================================
+# BROADCAST
+# ====================================
+
+@dp.message(F.text.startswith("/broadcast"))
+async def broadcast(message: Message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    text_to_send = message.text.replace(
+        "/broadcast",
+        ""
+    ).strip()
+
+    if not text_to_send:
+
+        await message.answer(
+            "❌ Введите текст рассылки"
+        )
+
+        return
+
+    cursor.execute(
+        "SELECT user_id FROM users"
+    )
+
+    users = cursor.fetchall()
+
+    success = 0
+
+    for user in users:
+
+        try:
+
+            await bot.send_message(
+                user[0],
+                f"📢 {text_to_send}"
+            )
+
+            success += 1
+
+        except:
+            pass
+
+    await message.answer(
+        f"✅ Отправлено: {success}"
     )
 
 
@@ -597,7 +738,7 @@ async def image_handler(message: Message):
 
 
 # ====================================
-# BUTTON HANDLERS
+# BUTTONS
 # ====================================
 
 @dp.message(F.text == "👨‍💻 Код")
