@@ -4,7 +4,11 @@ import os
 import asyncio
 import requests
 import tempfile
+import base64
+
 import PyPDF2
+from docx import Document
+from PIL import Image
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
@@ -66,8 +70,8 @@ user_modes = {}
 MODES = {
 
     "default": (
-        "Ты полезный AI ассистент. "
-        "Отвечай дружелюбно и понятно."
+        "Ты мощный AI ассистент. "
+        "Помогай пользователю максимально полезно."
     ),
 
     "coder": (
@@ -187,10 +191,12 @@ async def start(message: Message):
 
     await message.answer(
         "🤖 AI Assistant\n\n"
-        "Бот умеет:\n"
+        "Возможности:\n"
         "• AI чат\n"
-        "• Интернет поиск 🌐\n"
-        "• Анализ PDF 📄",
+        "• Интернет 🌐\n"
+        "• PDF/DOCX/TXT 📄\n"
+        "• Анализ фото 🖼\n"
+        "• Решение задач 🧠",
         reply_markup=menu
     )
 
@@ -275,33 +281,29 @@ async def new_chat(callback: CallbackQuery):
 
 
 # ====================================
-# PDF ANALYSIS
+# FILE ANALYSIS
 # ====================================
 
 @dp.message(F.document)
-async def pdf_handler(message: Message):
+async def file_handler(message: Message):
 
     document = message.document
 
-    if not document.file_name.endswith(".pdf"):
-
-        await message.answer(
-            "❌ Поддерживаются только PDF файлы."
-        )
-
-        return
-
     wait_message = await message.answer(
-        "📄 Анализирую PDF..."
+        "📄 Анализирую файл..."
     )
 
     try:
 
         file = await bot.get_file(document.file_id)
 
+        suffix = os.path.splitext(
+            document.file_name
+        )[1]
+
         with tempfile.NamedTemporaryFile(
             delete=False,
-            suffix=".pdf"
+            suffix=suffix
         ) as temp_file:
 
             await bot.download_file(
@@ -311,19 +313,52 @@ async def pdf_handler(message: Message):
 
             text = ""
 
-            with open(temp_file.name, "rb") as pdf_file:
+            # PDF
+            if suffix == ".pdf":
 
-                reader = PyPDF2.PdfReader(pdf_file)
+                with open(temp_file.name, "rb") as pdf_file:
 
-                for page in reader.pages:
-                    text += page.extract_text()
+                    reader = PyPDF2.PdfReader(pdf_file)
+
+                    for page in reader.pages:
+                        text += page.extract_text()
+
+            # TXT
+            elif suffix == ".txt":
+
+                with open(
+                    temp_file.name,
+                    "r",
+                    encoding="utf-8",
+                    errors="ignore"
+                ) as txt_file:
+
+                    text = txt_file.read()
+
+            # DOCX
+            elif suffix == ".docx":
+
+                doc = Document(temp_file.name)
+
+                for para in doc.paragraphs:
+                    text += para.text + "\n"
+
+            else:
+
+                await message.answer(
+                    "❌ Поддерживаются PDF / TXT / DOCX"
+                )
+
+                return
 
         prompt = f"""
-Вот текст PDF документа:
+Вот текст файла:
 
-{text[:12000]}
+{text[:15000]}
 
-Сделай краткое понятное содержание.
+1. Сделай краткое содержание
+2. Если это задача — реши её
+3. Если это обучение — объясни просто
 """
 
         response = client.chat.completions.create(
@@ -345,7 +380,68 @@ async def pdf_handler(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка PDF:\n{str(e)}"
+            f"❌ Ошибка файла:\n{str(e)}"
+        )
+
+    await wait_message.delete()
+
+
+# ====================================
+# IMAGE ANALYSIS
+# ====================================
+
+@dp.message(F.photo)
+async def image_handler(message: Message):
+
+    wait_message = await message.answer(
+        "🖼 Анализирую изображение..."
+    )
+
+    try:
+
+        photo = message.photo[-1]
+
+        file = await bot.get_file(photo.file_id)
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".jpg"
+        ) as temp_file:
+
+            await bot.download_file(
+                file.file_path,
+                temp_file.name
+            )
+
+            with open(temp_file.name, "rb") as image_file:
+                image_base64 = base64.b64encode(
+                    image_file.read()
+                ).decode("utf-8")
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-3.5-turbo",
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        "Опиши изображение. "
+                        "Если это задача — реши её. "
+                        "Если на фото есть текст — прочитай его."
+                    )
+                }
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        await message.answer(answer)
+
+    except Exception as e:
+
+        await message.answer(
+            f"❌ Ошибка изображения:\n{str(e)}"
         )
 
     await wait_message.delete()
@@ -376,7 +472,7 @@ async def chat(message: Message):
         ]
 
     wait_message = await message.answer(
-        "🌐 Ищу информацию..."
+        "🧠 Думаю..."
     )
 
     try:
@@ -390,7 +486,11 @@ async def chat(message: Message):
 Информация из интернета:
 {internet_data}
 
-Ответь пользователю понятно.
+Если это задача —
+реши её пошагово.
+
+Если это обучение —
+объясни просто.
 """
 
         user_memory[user_id].append(
