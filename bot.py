@@ -5,6 +5,7 @@ import asyncio
 import requests
 import tempfile
 import base64
+import sqlite3
 
 import PyPDF2
 from docx import Document
@@ -39,6 +40,127 @@ TAVILY_API_KEY = os.getenv(
 
 
 # ====================================
+# DATABASE
+# ====================================
+
+conn = sqlite3.connect(
+    "database.db"
+)
+
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+
+    user_id INTEGER PRIMARY KEY,
+    mode TEXT,
+    messages INTEGER
+)
+""")
+
+conn.commit()
+
+
+# ====================================
+# DATABASE FUNCTIONS
+# ====================================
+
+def create_user(user_id):
+
+    cursor.execute(
+        "SELECT * FROM users WHERE user_id=?",
+        (user_id,)
+    )
+
+    user = cursor.fetchone()
+
+    if not user:
+
+        cursor.execute(
+            """
+            INSERT INTO users
+            (user_id, mode, messages)
+
+            VALUES (?, ?, ?)
+            """,
+            (
+                user_id,
+                "default",
+                0
+            )
+        )
+
+        conn.commit()
+
+
+def get_mode(user_id):
+
+    create_user(user_id)
+
+    cursor.execute(
+        "SELECT mode FROM users WHERE user_id=?",
+        (user_id,)
+    )
+
+    result = cursor.fetchone()
+
+    return result[0]
+
+
+def set_mode_db(user_id, mode):
+
+    create_user(user_id)
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET mode=?
+        WHERE user_id=?
+        """,
+        (
+            mode,
+            user_id
+        )
+    )
+
+    conn.commit()
+
+
+def add_message(user_id):
+
+    create_user(user_id)
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET messages = messages + 1
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    conn.commit()
+
+
+def get_messages(user_id):
+
+    create_user(user_id)
+
+    cursor.execute(
+        """
+        SELECT messages
+        FROM users
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    result = cursor.fetchone()
+
+    return result[0]
+
+
+# ====================================
 # BOT
 # ====================================
 
@@ -57,12 +179,10 @@ client = OpenAI(
 
 
 # ====================================
-# USER DATA
+# MEMORY
 # ====================================
 
 user_memory = {}
-user_modes = {}
-user_stats = {}
 
 
 # ====================================
@@ -93,51 +213,6 @@ MODES = {
         "Ты профессиональный копирайтер."
     )
 }
-
-
-# ====================================
-# INLINE MENU
-# ====================================
-
-menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-
-        [
-            InlineKeyboardButton(
-                text="👨‍💻 Программист",
-                callback_data="coder"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="💰 Бизнес",
-                callback_data="business"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="🧠 Психолог",
-                callback_data="psychologist"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="✍️ Копирайтер",
-                callback_data="copywriter"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="🧹 Новый чат",
-                callback_data="new_chat"
-            )
-        ]
-    ]
-)
 
 
 # ====================================
@@ -225,6 +300,8 @@ def search_internet(query):
 @dp.message(CommandStart())
 async def start(message: Message):
 
+    create_user(message.from_user.id)
+
     user_name = message.from_user.first_name
 
     text = f"""
@@ -260,7 +337,7 @@ async def start(message: Message):
 
 
 # ====================================
-# USER PROFILE
+# PROFILE
 # ====================================
 
 @dp.message(F.text == "👤 Профиль")
@@ -269,18 +346,9 @@ async def profile(message: Message):
     user_id = message.from_user.id
     name = message.from_user.first_name
 
-    if user_id not in user_stats:
+    messages_count = get_messages(user_id)
 
-        user_stats[user_id] = {
-            "messages": 0
-        }
-
-    messages_count = user_stats[user_id]["messages"]
-
-    current_mode = user_modes.get(
-        user_id,
-        "default"
-    )
+    current_mode = get_mode(user_id)
 
     mode_names = {
         "default": "🧠 AI Чат",
@@ -535,7 +603,10 @@ async def image_handler(message: Message):
 @dp.message(F.text == "👨‍💻 Код")
 async def code_mode(message: Message):
 
-    user_modes[message.from_user.id] = "coder"
+    set_mode_db(
+        message.from_user.id,
+        "coder"
+    )
 
     await message.answer(
         "👨‍💻 Режим программиста включен"
@@ -545,7 +616,10 @@ async def code_mode(message: Message):
 @dp.message(F.text == "💰 Бизнес")
 async def business_text_mode(message: Message):
 
-    user_modes[message.from_user.id] = "business"
+    set_mode_db(
+        message.from_user.id,
+        "business"
+    )
 
     await message.answer(
         "💰 Бизнес режим включен"
@@ -555,7 +629,10 @@ async def business_text_mode(message: Message):
 @dp.message(F.text == "🧘 Психолог")
 async def psycho_mode(message: Message):
 
-    user_modes[message.from_user.id] = "psychologist"
+    set_mode_db(
+        message.from_user.id,
+        "psychologist"
+    )
 
     await message.answer(
         "🧘 Режим психолога включен"
@@ -565,10 +642,26 @@ async def psycho_mode(message: Message):
 @dp.message(F.text == "✍️ Тексты")
 async def copy_mode(message: Message):
 
-    user_modes[message.from_user.id] = "copywriter"
+    set_mode_db(
+        message.from_user.id,
+        "copywriter"
+    )
 
     await message.answer(
         "✍️ Режим копирайтера включен"
+    )
+
+
+@dp.message(F.text == "🧠 AI Чат")
+async def ai_chat(message: Message):
+
+    set_mode_db(
+        message.from_user.id,
+        "default"
+    )
+
+    await message.answer(
+        "🧠 Обычный AI режим включен"
     )
 
 
@@ -606,16 +699,6 @@ async def photo_info(message: Message):
     )
 
 
-@dp.message(F.text == "🧠 AI Чат")
-async def ai_chat(message: Message):
-
-    user_modes[message.from_user.id] = "default"
-
-    await message.answer(
-        "🧠 Обычный AI режим включен"
-    )
-
-
 # ====================================
 # CHAT
 # ====================================
@@ -626,20 +709,11 @@ async def chat(message: Message):
     user_id = message.from_user.id
     user_text = message.text
 
-    if user_id not in user_stats:
+    add_message(user_id)
 
-        user_stats[user_id] = {
-            "messages": 0
-        }
-
-    user_stats[user_id]["messages"] += 1
-
-    if user_id not in user_modes:
-        user_modes[user_id] = "default"
+    current_mode = get_mode(user_id)
 
     if user_id not in user_memory:
-
-        current_mode = user_modes[user_id]
 
         user_memory[user_id] = [
             {
