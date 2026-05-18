@@ -715,22 +715,27 @@ async def chat(message: Message):
 # =========================================
 
 @app.route("/webhook", methods=["POST"])
-def webhook():
+async def webhook():
 
-    update = Update.model_validate(
-        request.json,
-        context={"bot": bot}
-    )
+    try:
 
-    asyncio.run(
-        dp.feed_update(
+        update = Update.model_validate(
+            request.json,
+            context={"bot": bot}
+        )
+
+        await dp.feed_update(
             bot,
             update
         )
-    )
 
-    return "ok"
+        return "ok"
 
+    except Exception as e:
+
+        print(e)
+
+        return "error"
 
 # =========================================
 # START WEBHOOK
@@ -767,6 +772,7 @@ if __name__ == "__main__":
     )
 
     app.run(
-        host="0.0.0.0",
-        port=port
-    )
+    host="0.0.0.0",
+    port=port,
+    threaded=True
+)
