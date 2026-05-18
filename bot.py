@@ -783,12 +783,10 @@ if __name__ == "__main__":
 
         print("START SERVER...")
 
-        from waitress import serve
-
-        serve(
-            app,
+        app.run(
             host="0.0.0.0",
-            port=port
+            port=port,
+            threaded=True
         )
 
     except Exception as e:
