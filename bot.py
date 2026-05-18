@@ -140,17 +140,6 @@ def home():
     </html>
     """
 
-def run_web():
-
-    port = int(
-        os.environ.get("PORT", 8080)
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        threaded=True
-    )
 
 # ====================================
 # DATABASE
@@ -1028,17 +1017,12 @@ async def chat(message: Message):
 
 async def main():
 
-    web_thread = Thread(target=run_web)
-
-    web_thread.daemon = True
-
-    web_thread.start()
-
     await bot.delete_webhook()
 
     await asyncio.sleep(2)
 
     await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
 
