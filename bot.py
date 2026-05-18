@@ -166,8 +166,10 @@ def get_mode(user_id):
 
     result = cursor.fetchone()
 
-    return result[0]
+    if result is None:
+        return "default"
 
+    return result[0]
 
 def set_mode_db(user_id, mode):
 
@@ -213,8 +215,13 @@ def get_messages(user_id):
 
     result = cursor.fetchone()
 
-    return result[0]
+    if result is None:
 
+        create_user(user_id)
+
+        return 0
+
+    return result[0]
 
 # ====================================
 # BOT
