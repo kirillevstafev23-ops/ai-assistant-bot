@@ -743,14 +743,24 @@ async def set_webhook():
     )
 
 
-asyncio.run(set_webhook())
-
 
 # =========================================
 # MAIN
 # =========================================
 
 if __name__ == "__main__":
+
+    async def startup():
+
+        await bot.delete_webhook(
+            drop_pending_updates=True
+        )
+
+        await bot.set_webhook(
+            WEBHOOK_URL
+        )
+
+    asyncio.run(startup())
 
     port = int(
         os.environ.get("PORT", 8080)
