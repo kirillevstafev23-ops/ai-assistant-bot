@@ -759,26 +759,39 @@ print("FLASK START...")
 
 if __name__ == "__main__":
 
-    async def startup():
+    try:
 
-        await bot.delete_webhook(
-            drop_pending_updates=True
+        print("STARTING WEBHOOK...")
+
+        async def startup():
+
+            await bot.delete_webhook(
+                drop_pending_updates=True
+            )
+
+            await bot.set_webhook(
+                WEBHOOK_URL
+            )
+
+        asyncio.run(startup())
+
+        print("WEBHOOK OK")
+
+        port = int(
+            os.environ.get("PORT", 8080)
         )
 
-        await bot.set_webhook(
-            WEBHOOK_URL
+        print("START SERVER...")
+
+        from waitress import serve
+
+        serve(
+            app,
+            host="0.0.0.0",
+            port=port
         )
 
-    asyncio.run(startup())
+    except Exception as e:
 
-    port = int(
-        os.environ.get("PORT", 8080)
-    )
-
-    from waitress import serve
-
-serve(
-    app,
-    host="0.0.0.0",
-    port=port
-)
+        print("ERROR:")
+        print(str(e))
