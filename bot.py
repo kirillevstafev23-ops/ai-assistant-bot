@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+print("BOT STARTING...")
+
 import os
 import sqlite3
 import asyncio
@@ -752,6 +754,8 @@ async def set_webhook():
 # =========================================
 # MAIN
 # =========================================
+
+print("FLASK START...")
 
 if __name__ == "__main__":
 
