@@ -973,8 +973,13 @@ if __name__ == "__main__":
     web_thread.start()
 
     asyncio.run(
-    dp.start_polling(
-        bot,
-        drop_pending_updates=True
+        bot.delete_webhook(
+            drop_pending_updates=True
+        )
     )
-)
+
+    asyncio.run(
+        dp.start_polling(
+            bot
+        )
+    )
