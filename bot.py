@@ -71,12 +71,74 @@ app = Flask(__name__)
 @app.route("/")
 def home():
 
-    return open(
-    "webapp.html",
-    "r",
-    encoding="utf-8"
-).read()
+    return """
+    <!DOCTYPE html>
+    <html lang="ru">
 
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+
+        <title>AI Assistant</title>
+
+        <style>
+
+            body {
+
+                background: #0f172a;
+                color: white;
+                font-family: Arial;
+                text-align: center;
+                padding: 40px;
+            }
+
+            h1 {
+
+                font-size: 40px;
+            }
+
+            button {
+
+                background: #2563eb;
+                color: white;
+                border: none;
+                padding: 15px 30px;
+                border-radius: 12px;
+                font-size: 20px;
+                cursor: pointer;
+                margin-top: 20px;
+            }
+
+        </style>
+    </head>
+
+    <body>
+
+        <h1>🚀 AI Assistant</h1>
+
+        <button onclick="sendData()">
+            Открыть AI
+        </button>
+
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+        <script>
+
+            let tg = window.Telegram.WebApp;
+
+            tg.expand();
+
+            function sendData() {
+
+                tg.sendData("ai_chat");
+            }
+
+        </script>
+
+    </body>
+    </html>
+    """
 
 def run_web():
 
