@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sqlite3
 import asyncio
 import requests
 import tempfile
 import base64
-import sqlite3
 import pytesseract
 
 from io import BytesIO
@@ -14,25 +14,25 @@ from PIL import Image
 import PyPDF2
 from docx import Document
 
-from flask import Flask, send_file
-from threading import Thread
+from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message,
+    Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    CallbackQuery,
-    WebAppInfo
+    WebAppInfo,
+    CallbackQuery
 )
 from aiogram.filters import CommandStart
 
 from openai import OpenAI
 
 
-# ====================================
+# =========================================
 # TOKENS
-# ====================================
+# =========================================
 
 TOKEN = os.getenv("TOKEN")
 
@@ -47,103 +47,33 @@ TAVILY_API_KEY = os.getenv(
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 
-# ====================================
-# ВСТАВЬ СВОЮ ССЫЛКУ RAILWAY
-# ====================================
+# =========================================
+# URL RENDER
+# =========================================
+
+WEBHOOK_URL = "https://ai-assistant-bot-production-11dd.up.railway.app"
+
 
 WEB_APP_URL = "https://ai-assistant-bot-production-11dd.up.railway.app"
 
 
-# ====================================
+# =========================================
 # ADMIN
-# ====================================
+# =========================================
 
 ADMIN_ID = 1739947062
 
 
-# ====================================
-# FLASK WEB APP
-# ====================================
+# =========================================
+# FLASK
+# =========================================
 
 app = Flask(__name__)
 
 
-@app.route("/")
-def home():
-
-    return """
-    <!DOCTYPE html>
-    <html lang="ru">
-
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport"
-              content="width=device-width, initial-scale=1.0">
-
-        <title>AI Assistant</title>
-
-        <style>
-
-            body {
-
-                background: #0f172a;
-                color: white;
-                font-family: Arial;
-                text-align: center;
-                padding: 40px;
-            }
-
-            h1 {
-
-                font-size: 40px;
-            }
-
-            button {
-
-                background: #2563eb;
-                color: white;
-                border: none;
-                padding: 15px 30px;
-                border-radius: 12px;
-                font-size: 20px;
-                cursor: pointer;
-                margin-top: 20px;
-            }
-
-        </style>
-    </head>
-
-    <body>
-
-        <h1>🚀 AI Assistant</h1>
-
-        <button onclick="sendData()">
-            Открыть AI
-        </button>
-
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-        <script>
-
-            let tg = window.Telegram.WebApp;
-
-            tg.expand();
-
-            function sendData() {
-
-                tg.sendData("ai_chat");
-            }
-
-        </script>
-
-    </body>
-    </html>
-    """
-
-
-# ====================================
+# =========================================
 # DATABASE
-# ====================================
+# =========================================
 
 conn = sqlite3.connect(
     "database.db",
@@ -174,9 +104,136 @@ CREATE TABLE IF NOT EXISTS memory (
 conn.commit()
 
 
-# ====================================
+# =========================================
+# BOT
+# =========================================
+
+bot = Bot(token=TOKEN)
+
+dp = Dispatcher()
+
+
+# =========================================
+# OPENROUTER
+# =========================================
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY
+)
+
+
+# =========================================
+# WEB APP PAGE
+# =========================================
+
+@app.route("/")
+def home():
+
+    return """
+    <!DOCTYPE html>
+    <html lang="ru">
+
+    <head>
+
+        <meta charset="UTF-8">
+
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+
+        <title>AI Assistant</title>
+
+        <style>
+
+            body {
+
+                background: #0f172a;
+                color: white;
+                font-family: Arial;
+                padding: 20px;
+                margin: 0;
+            }
+
+            h1 {
+
+                text-align: center;
+                margin-bottom: 30px;
+            }
+
+            .grid {
+
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+
+            button {
+
+                background: #1e293b;
+                color: white;
+                border: none;
+                border-radius: 15px;
+                padding: 20px;
+                font-size: 18px;
+                cursor: pointer;
+            }
+
+            button:hover {
+
+                background: #334155;
+            }
+
+        </style>
+
+    </head>
+
+    <body>
+
+        <h1>🚀 AI Assistant</h1>
+
+        <div class="grid">
+
+            <button onclick="sendData('ai_chat')">
+                🧠 AI Chat
+            </button>
+
+            <button onclick="sendData('image')">
+                🎨 Картинки
+            </button>
+
+            <button onclick="sendData('docs')">
+                📄 Документы
+            </button>
+
+            <button onclick="sendData('internet')">
+                🌐 Интернет
+            </button>
+
+        </div>
+
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+        <script>
+
+            let tg = window.Telegram.WebApp;
+
+            tg.expand();
+
+            function sendData(data) {
+
+                tg.sendData(data);
+            }
+
+        </script>
+
+    </body>
+    </html>
+    """
+
+
+# =========================================
 # DATABASE FUNCTIONS
-# ====================================
+# =========================================
 
 def create_user(user_id):
 
@@ -211,7 +268,11 @@ def get_mode(user_id):
     create_user(user_id)
 
     cursor.execute(
-        "SELECT mode FROM users WHERE user_id=?",
+        """
+        SELECT mode
+        FROM users
+        WHERE user_id=?
+        """,
         (user_id,)
     )
 
@@ -222,7 +283,8 @@ def get_mode(user_id):
 
     return result[0]
 
-def set_mode_db(user_id, mode):
+
+def set_mode(user_id, mode):
 
     cursor.execute(
         """
@@ -274,30 +336,10 @@ def get_messages(user_id):
 
     return result[0]
 
-# ====================================
-# BOT
-# ====================================
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
-
-
-# ====================================
-# OPENROUTER
-# ====================================
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY,
-)
-
-
-# ====================================
+# =========================================
 # MEMORY
-# ====================================
-
-image_waiting_users = set()
-
+# =========================================
 
 def save_memory(user_id, role, content):
 
@@ -337,11 +379,9 @@ def load_memory(user_id):
 
     memory = []
 
-    current_mode = get_mode(user_id)
-
     memory.append({
         "role": "system",
-        "content": MODES[current_mode]
+        "content": "Ты мощный AI ассистент."
     })
 
     for row in rows:
@@ -367,102 +407,12 @@ def clear_memory(user_id):
     conn.commit()
 
 
-# ====================================
-# AI MODES
-# ====================================
-
-MODES = {
-
-    "default": (
-        "Ты мощный AI ассистент. "
-        "Помогай максимально полезно."
-    ),
-
-    "coder": (
-        "Ты опытный программист. "
-        "Помогай с кодом."
-    ),
-
-    "business": (
-        "Ты бизнес-консультант."
-    ),
-
-    "psychologist": (
-        "Ты спокойный психолог."
-    ),
-
-    "copywriter": (
-        "Ты профессиональный копирайтер."
-    )
-}
-
-
-# ====================================
+# =========================================
 # MENU
-# ====================================
+# =========================================
 
-main_inline_menu = InlineKeyboardMarkup(
+menu = InlineKeyboardMarkup(
     inline_keyboard=[
-
-        [
-            InlineKeyboardButton(
-                text="🧠 AI Чат",
-                callback_data="ai_chat"
-            ),
-
-            InlineKeyboardButton(
-                text="🌐 Интернет",
-                callback_data="internet"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="📄 Документы",
-                callback_data="docs"
-            ),
-
-            InlineKeyboardButton(
-                text="🖼 Фото",
-                callback_data="photo"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="🎨 Картинки",
-                callback_data="image_gen"
-            ),
-
-            InlineKeyboardButton(
-                text="👨‍💻 Код",
-                callback_data="coder"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="✍️ Тексты",
-                callback_data="copywriter"
-            ),
-
-            InlineKeyboardButton(
-                text="💰 Бизнес",
-                callback_data="business"
-            )
-        ],
-
-        [
-            InlineKeyboardButton(
-                text="🧘 Психолог",
-                callback_data="psychologist"
-            ),
-
-            InlineKeyboardButton(
-                text="👤 Профиль",
-                callback_data="profile"
-            )
-        ],
 
         [
             InlineKeyboardButton(
@@ -476,160 +426,44 @@ main_inline_menu = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(
                 text="🧹 Очистить чат",
-                callback_data="clear_chat"
+                callback_data="clear"
             )
         ]
     ]
 )
 
 
-# ====================================
-# INTERNET SEARCH
-# ====================================
-
-def search_internet(query):
-
-    try:
-
-        url = "https://api.tavily.com/search"
-
-        payload = {
-            "api_key": TAVILY_API_KEY,
-            "query": query,
-            "search_depth": "basic",
-            "max_results": 5
-        }
-
-        response = requests.post(
-            url,
-            json=payload
-        )
-
-        data = response.json()
-
-        results = data.get("results", [])
-
-        text = ""
-
-        for item in results:
-
-            text += (
-                f"{item['title']}\n"
-                f"{item['content']}\n\n"
-            )
-
-        return text
-
-    except:
-        return "Интернет-поиск недоступен."
-
-
-# ====================================
+# =========================================
 # START
-# ====================================
+# =========================================
 
 @dp.message(CommandStart())
 async def start(message: Message):
 
     create_user(message.from_user.id)
 
-    user_name = message.from_user.first_name
+    text = """
+🚀 <b>AI Assistant</b>
 
-    text = f"""
-✨ <b>Добро пожаловать, {user_name}!</b>
-
-🤖 <b>AI Assistant</b>
-
-Твой умный AI помощник 🚀
+Умный AI бот:
+• чат
+• фото
+• файлы
+• Mini App
 """
 
     await message.answer(
         text,
-        reply_markup=main_inline_menu,
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=menu
     )
 
 
-# ====================================
-# CALLBACKS
-# ====================================
+# =========================================
+# CLEAR
+# =========================================
 
-@dp.callback_query(F.data == "ai_chat")
-async def ai_chat_callback(callback: CallbackQuery):
-
-    set_mode_db(
-        callback.from_user.id,
-        "default"
-    )
-
-    await callback.message.answer(
-        "🧠 AI режим включен"
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "coder")
-async def coder_callback(callback: CallbackQuery):
-
-    set_mode_db(
-        callback.from_user.id,
-        "coder"
-    )
-
-    await callback.message.answer(
-        "👨‍💻 Режим программиста включен"
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "business")
-async def business_callback(callback: CallbackQuery):
-
-    set_mode_db(
-        callback.from_user.id,
-        "business"
-    )
-
-    await callback.message.answer(
-        "💰 Бизнес режим включен"
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "psychologist")
-async def psychologist_callback(callback: CallbackQuery):
-
-    set_mode_db(
-        callback.from_user.id,
-        "psychologist"
-    )
-
-    await callback.message.answer(
-        "🧘 Режим психолога включен"
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "copywriter")
-async def copywriter_callback(callback: CallbackQuery):
-
-    set_mode_db(
-        callback.from_user.id,
-        "copywriter"
-    )
-
-    await callback.message.answer(
-        "✍️ Режим текстов включен"
-    )
-
-    await callback.answer()
-
-
-@dp.callback_query(F.data == "clear_chat")
+@dp.callback_query(F.data == "clear")
 async def clear_callback(callback: CallbackQuery):
 
     clear_memory(callback.from_user.id)
@@ -641,89 +475,15 @@ async def clear_callback(callback: CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query(F.data == "profile")
-async def profile_callback(callback: CallbackQuery):
-
-    user_id = callback.from_user.id
-    name = callback.from_user.first_name
-
-    messages_count = get_messages(user_id)
-
-    current_mode = get_mode(user_id)
-
-    text = f"""
-👤 <b>ПРОФИЛЬ</b>
-
-✨ Имя: <b>{name}</b>
-
-🆔 ID:
-<code>{user_id}</code>
-
-🧠 Режим:
-<b>{current_mode}</b>
-
-📨 Сообщений:
-<b>{messages_count}</b>
-
-🚀 Статус:
-<b>Premium User</b>
-"""
-
-    await callback.message.answer(
-        text,
-        parse_mode="HTML"
-    )
-
-    await callback.answer()
-
-
-# ====================================
-# WEB APP DATA
-# ====================================
-
-@dp.message(F.web_app_data)
-async def web_app_handler(message: Message):
-
-    data = message.web_app_data.data
-
-    if data == "ai_chat":
-
-        await message.answer(
-            "🧠 AI Chat открыт"
-        )
-
-    elif data == "image":
-
-        image_waiting_users.add(
-            message.from_user.id
-        )
-
-        await message.answer(
-            "🎨 Напиши описание картинки"
-        )
-
-    elif data == "docs":
-
-        await message.answer(
-            "📄 Отправь документ"
-        )
-
-    elif data == "internet":
-
-        await message.answer(
-            "🌐 Напиши запрос"
-        )
-
-
-# ====================================
-# IMAGE ANALYSIS + OCR
-# ====================================
+# =========================================
+# PHOTO
+# =========================================
 
 @dp.message(F.photo)
-async def image_handler(message: Message):
+async def photo_handler(message: Message):
 
-    wait_message = await message.answer(
-        "🖼 Анализирую изображение..."
+    wait = await message.answer(
+        "🖼 Анализирую фото..."
     )
 
     try:
@@ -735,36 +495,25 @@ async def image_handler(message: Message):
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".jpg"
-        ) as temp_file:
+        ) as temp:
 
             await bot.download_file(
                 file.file_path,
-                temp_file.name
+                temp.name
             )
 
-            image = Image.open(temp_file.name)
+            image = Image.open(temp.name)
 
-            extracted_text = pytesseract.image_to_string(
+            ocr_text = pytesseract.image_to_string(
                 image,
                 lang="eng+rus"
             )
 
-            with open(temp_file.name, "rb") as image_file:
+            with open(temp.name, "rb") as img:
 
                 base64_image = base64.b64encode(
-                    image_file.read()
+                    img.read()
                 ).decode("utf-8")
-
-        prompt = f"""
-Ты получил изображение.
-
-OCR текст:
-
-{extracted_text}
-
-Если это задача —
-реши пошагово.
-"""
 
         response = client.chat.completions.create(
 
@@ -776,7 +525,12 @@ OCR текст:
                     "content": [
                         {
                             "type": "text",
-                            "text": prompt
+                            "text": f"""
+Реши задачу по изображению.
+
+OCR:
+{ocr_text}
+"""
                         },
                         {
                             "type": "image_url",
@@ -796,28 +550,30 @@ OCR текст:
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
+            f"Ошибка:\n{str(e)}"
         )
 
-    await wait_message.delete()
+    await wait.delete()
 
 
-# ====================================
-# FILE ANALYSIS
-# ====================================
+# =========================================
+# FILES
+# =========================================
 
 @dp.message(F.document)
 async def file_handler(message: Message):
 
-    document = message.document
-
-    wait_message = await message.answer(
+    wait = await message.answer(
         "📄 Анализирую файл..."
     )
 
     try:
 
-        file = await bot.get_file(document.file_id)
+        document = message.document
+
+        file = await bot.get_file(
+            document.file_id
+        )
 
         suffix = os.path.splitext(
             document.file_name
@@ -826,20 +582,20 @@ async def file_handler(message: Message):
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=suffix
-        ) as temp_file:
+        ) as temp:
 
             await bot.download_file(
                 file.file_path,
-                temp_file.name
+                temp.name
             )
 
             text = ""
 
             if suffix == ".pdf":
 
-                with open(temp_file.name, "rb") as pdf_file:
+                with open(temp.name, "rb") as pdf:
 
-                    reader = PyPDF2.PdfReader(pdf_file)
+                    reader = PyPDF2.PdfReader(pdf)
 
                     for page in reader.pages:
 
@@ -851,19 +607,20 @@ async def file_handler(message: Message):
             elif suffix == ".txt":
 
                 with open(
-                    temp_file.name,
+                    temp.name,
                     "r",
                     encoding="utf-8",
                     errors="ignore"
-                ) as txt_file:
+                ) as txt:
 
-                    text = txt_file.read()
+                    text = txt.read()
 
             elif suffix == ".docx":
 
-                doc = Document(temp_file.name)
+                doc = Document(temp.name)
 
                 for para in doc.paragraphs:
+
                     text += para.text + "\n"
 
             response = client.chat.completions.create(
@@ -889,101 +646,43 @@ async def file_handler(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
+            f"Ошибка:\n{str(e)}"
         )
 
-    await wait_message.delete()
+    await wait.delete()
 
 
-# ====================================
-# MAIN CHAT
-# ====================================
+# =========================================
+# CHAT
+# =========================================
 
 @dp.message()
 async def chat(message: Message):
 
     user_id = message.from_user.id
-    user_text = message.text
 
-    if user_id in image_waiting_users:
-
-        wait_message = await message.answer(
-            "🎨 Генерирую картинку..."
-        )
-
-        try:
-
-            API_URL = (
-                "https://api-inference.huggingface.co/models/"
-                "stabilityai/stable-diffusion-xl-base-1.0"
-            )
-
-            headers = {
-                "Authorization": f"Bearer {HF_TOKEN}"
-            }
-
-            response = requests.post(
-                API_URL,
-                headers=headers,
-                json={
-                    "inputs": user_text
-                },
-                timeout=120
-            )
-
-            image_bytes = response.content
-
-            image_stream = BytesIO(image_bytes)
-
-            await message.answer_photo(
-                image_stream,
-                caption=f"🎨 {user_text}"
-            )
-
-        except Exception as e:
-
-            await message.answer(
-                f"❌ Ошибка:\n{str(e)}"
-            )
-
-        image_waiting_users.remove(user_id)
-
-        await wait_message.delete()
-
-        return
+    create_user(user_id)
 
     add_message(user_id)
 
-    messages = load_memory(user_id)
-
-    wait_message = await message.answer(
+    wait = await message.answer(
         "🧠 Думаю..."
     )
 
     try:
 
-        internet_data = search_internet(user_text)
-
-        prompt = f"""
-Вопрос:
-{user_text}
-
-Интернет:
-{internet_data}
-"""
+        messages = load_memory(user_id)
 
         save_memory(
             user_id,
             "user",
-            prompt
+            message.text
         )
 
-        messages.append(
-            {
-                "role": "user",
-                "content": prompt
-            }
-        )
+        messages.append({
+            "role": "user",
+            "content": message.text
+        })
 
         response = client.chat.completions.create(
 
@@ -1005,25 +704,59 @@ async def chat(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
+            f"Ошибка:\n{str(e)}"
         )
 
-    await wait_message.delete()
+    await wait.delete()
 
 
-# ====================================
+# =========================================
+# WEBHOOK
+# =========================================
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+
+    update = Update.model_validate(
+        request.json,
+        context={"bot": bot}
+    )
+
+    asyncio.run(
+        dp.feed_update(
+            bot,
+            update
+        )
+    )
+
+    return "ok"
+
+
+# =========================================
+# START WEBHOOK
+# =========================================
+
+async def set_webhook():
+
+    await bot.set_webhook(
+        WEBHOOK_URL
+    )
+
+
+asyncio.run(set_webhook())
+
+
+# =========================================
 # MAIN
-# ====================================
-
-async def main():
-
-    await bot.delete_webhook()
-
-    await asyncio.sleep(2)
-
-    await dp.start_polling(bot)
-
+# =========================================
 
 if __name__ == "__main__":
 
-    asyncio.run(main())
+    port = int(
+        os.environ.get("PORT", 8080)
+    )
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
