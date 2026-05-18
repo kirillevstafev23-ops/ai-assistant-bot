@@ -972,4 +972,9 @@ if __name__ == "__main__":
 
     web_thread.start()
 
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(
+    dp.start_polling(
+        bot,
+        drop_pending_updates=True
+    )
+)
