@@ -13,3 +13,4 @@ pytesseract
 Pillow
 flask
 gunicorn
+waitress
