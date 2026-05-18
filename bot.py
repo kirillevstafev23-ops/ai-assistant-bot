@@ -53,10 +53,10 @@ HF_TOKEN = os.getenv("HF_TOKEN")
 # URL RENDER
 # =========================================
 
-WEBHOOK_URL = "https://ai-assistant-bot-production-11dd.up.railway.app/webhook"
+WEBHOOK_URL = "https://ai-assistant-bot-kcm7.onrender.com/webhook"
 
 
-WEB_APP_URL = "https://ai-assistant-bot-production-11dd.up.railway.app"
+WEB_APP_URL = "https://ai-assistant-bot-kcm7.onrender.com"
 
 
 # =========================================
