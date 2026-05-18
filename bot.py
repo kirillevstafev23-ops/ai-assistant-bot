@@ -964,7 +964,7 @@ async def chat(message: Message):
 # MAIN
 # ====================================
 
-if __name__ == "__main__":
+async def main():
 
     web_thread = Thread(target=run_web)
 
@@ -972,14 +972,13 @@ if __name__ == "__main__":
 
     web_thread.start()
 
-    asyncio.run(
-        bot.delete_webhook(
-            drop_pending_updates=True
-        )
+    await bot.delete_webhook(
+        drop_pending_updates=True
     )
 
-    asyncio.run(
-        dp.start_polling(
-            bot
-        )
-    )
+    await dp.start_polling(bot)
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
