@@ -1,5 +1,15 @@
 aiogram
 openai
-pillow
+aiohttp
+pydub
+ffmpeg-python
+python-dotenv
+duckduckgo-search
+requests
 PyPDF2
 python-docx
+Pillow
+pytesseract
+flask
+gunicorn
+waitress
