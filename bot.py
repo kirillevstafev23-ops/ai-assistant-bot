@@ -390,7 +390,11 @@ def home():
 # =========================================
 
 @dp.message(CommandStart())
-async def start_handler(message: Message):
+async def start(message: Message):
+
+    print("START COMMAND RECEIVED")
+
+    await message.answer("Бот работает")
 
     add_user(message.from_user.id)
 
