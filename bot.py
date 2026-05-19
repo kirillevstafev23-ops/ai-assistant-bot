@@ -760,54 +760,9 @@ async def webhook():
 
         return "error", 500
 
-
 # =========================================
 # MAIN
 # =========================================
 
 print("FLASK START...")
 
-if __name__ == "__main__":
-
-    try:
-
-        print("SETTING WEBHOOK...")
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(
-            bot.delete_webhook(
-                drop_pending_updates=True
-            )
-        )
-
-        loop.run_until_complete(
-            bot.set_webhook(
-                WEBHOOK_URL
-            )
-        )
-
-        info = loop.run_until_complete(
-            bot.get_webhook_info()
-        )
-
-        print(info)
-
-        print("WEBHOOK OK")
-
-        port = int(
-            os.environ.get("PORT", 10000)
-        )
-
-        print("START SERVER...")
-
-        app.run(
-            host="0.0.0.0",
-            port=port
-        )
-
-    except Exception as e:
-
-        print("ERROR:")
-        print(str(e))
