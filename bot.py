@@ -8,7 +8,6 @@ import sqlite3
 import tempfile
 
 from dotenv import load_dotenv
-from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
@@ -79,7 +78,6 @@ ADMIN_ID = 1739947062
 # FLASK
 # =========================================
 
-app = Flask(__name__)
 
 
 # =========================================
@@ -300,95 +298,6 @@ menu = InlineKeyboardMarkup(
         ]
     ]
 )
-
-
-# =========================================
-# WEB APP
-# =========================================
-
-@app.route("/")
-def home():
-
-    return """
-    <!DOCTYPE html>
-    <html lang="ru">
-
-    <head>
-
-        <meta charset="UTF-8">
-
-        <meta name="viewport"
-              content="width=device-width, initial-scale=1.0">
-
-        <title>AI Assistant</title>
-
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-        <style>
-
-            body {
-
-                background: #0f172a;
-                color: white;
-                font-family: Arial;
-                padding: 20px;
-            }
-
-            textarea {
-
-                width: 100%;
-                height: 150px;
-                border-radius: 10px;
-                padding: 10px;
-                margin-top: 10px;
-            }
-
-            button {
-
-                margin-top: 10px;
-                width: 100%;
-                height: 50px;
-                border: none;
-                border-radius: 10px;
-                background: #2563eb;
-                color: white;
-                font-size: 18px;
-            }
-
-        </style>
-
-    </head>
-
-    <body>
-
-        <h1>🚀 AI Assistant</h1>
-
-        <textarea id="prompt"
-                  placeholder="Напиши сообщение..."></textarea>
-
-        <button onclick="sendMessage()">
-            Отправить
-        </button>
-
-        <script>
-
-            function sendMessage() {
-
-                let text =
-                    document.getElementById(
-                        "prompt"
-                    ).value;
-
-                Telegram.WebApp.sendData(text);
-
-                alert("Отправлено!");
-            }
-
-        </script>
-
-    </body>
-    </html>
-    """
 
 
 # =========================================
@@ -759,88 +668,16 @@ async def ai_chat(message: Message):
         pass
 
 # =========================================
-# WEBHOOK
-# =========================================
-
-@app.route(
-    "/webhook",
-    methods=["POST"]
-)
-def webhook():
-
-    try:
-
-        update = Update.model_validate(
-            request.json,
-            context={"bot": bot}
-        )
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(
-            dp.feed_update(bot, update)
-        )
-
-        loop.close()
-
-        return "ok"
-
-    except Exception as e:
-
-        print("WEBHOOK ERROR:")
-        print(str(e))
-
-        return "error", 500
-
-
-# =========================================
 # MAIN
 # =========================================
 
-print("FLASK START...")
+async def main():
+
+    print("BOT STARTED")
+
+    await dp.start_polling(bot)
+
 
 if __name__ == "__main__":
 
-    try:
-
-        print("SETTING WEBHOOK...")
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(
-            bot.delete_webhook(
-                drop_pending_updates=True
-            )
-        )
-
-        loop.run_until_complete(
-            bot.set_webhook(
-                WEBHOOK_URL
-            )
-        )
-
-        info = loop.run_until_complete(
-            bot.get_webhook_info()
-        )
-
-        print(info)
-
-        print("WEBHOOK OK")
-
-        port = int(
-            os.environ.get("PORT", 10000)
-        )
-
-        print("START SERVER...")
-
-        app.run(
-            host="0.0.0.0",
-            port=port
-        )
-
-    except Exception as e:
-
-        print("ERROR:")
-        print(str(e))
+    asyncio.run(main())
