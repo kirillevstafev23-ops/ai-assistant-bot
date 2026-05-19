@@ -10,6 +10,6 @@ PyPDF2
 python-docx
 Pillow
 pytesseract
-flask
+flask[async]
 gunicorn
 waitress
