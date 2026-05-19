@@ -776,21 +776,24 @@ if __name__ == "__main__":
 
     try:
 
-        print("STARTING WEBHOOK...")
+        print("SETTING WEBHOOK...")
 
-        asyncio.run(
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(
             bot.delete_webhook(
                 drop_pending_updates=True
             )
         )
 
-        asyncio.run(
+        loop.run_until_complete(
             bot.set_webhook(
                 WEBHOOK_URL
             )
         )
 
-        info = asyncio.run(
+        info = loop.run_until_complete(
             bot.get_webhook_info()
         )
 
