@@ -739,11 +739,8 @@ async def ai_chat(message: Message):
 # WEBHOOK
 # =========================================
 
-@app.route(
-    "/webhook",
-    methods=["POST"]
-)
-def webhook():
+@app.route("/webhook", methods=["POST"])
+async def webhook():
 
     try:
 
@@ -752,9 +749,7 @@ def webhook():
             context={"bot": bot}
         )
 
-        asyncio.run(
-            dp.feed_update(bot, update)
-        )
+        await dp.feed_update(bot, update)
 
         return "ok"
 
