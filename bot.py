@@ -743,28 +743,35 @@ async def ai_chat(message: Message):
     "/webhook",
     methods=["POST"]
 )
-
-async def webhook():
+def webhook():
 
     try:
 
         update = Update.model_validate(
-            request.json,
-            context={"bot": bot}
+            request.json
         )
 
-        await dp.feed_update(
-            bot,
-            update
+        loop = asyncio.new_event_loop()
+
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(
+            dp.feed_update(
+                bot,
+                update
+            )
         )
 
-        return "ok"
+        loop.close()
+
+        return "ok", 200
 
     except Exception as e:
 
-        print(e)
+        print("WEBHOOK ERROR:")
+        print(str(e))
 
-        return "error"
+        return "error", 500
 
 
 # =========================================
@@ -798,15 +805,14 @@ if __name__ == "__main__":
         print("WEBHOOK OK")
 
         port = int(
-            os.environ.get("PORT", 8080)
+            os.environ.get("PORT", 10000)
         )
 
         print("START SERVER...")
 
         app.run(
             host="0.0.0.0",
-            port=port,
-            threaded=True
+            port=port
         )
 
     except Exception as e:
