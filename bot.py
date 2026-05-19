@@ -716,6 +716,9 @@ async def ai_chat(message: Message):
 
         messages = load_memory(user_id)
 
+        print("MESSAGES:")
+        print(messages)
+
         response = client.chat.completions.create(
 
             model="openai/gpt-4o-mini",
@@ -723,9 +726,15 @@ async def ai_chat(message: Message):
             messages=messages
         )
 
+        print("RESPONSE:")
+        print(response)
+
         answer = response.choices[
             0
         ].message.content
+
+        if not answer:
+            answer = "❌ AI ничего не вернул"
 
         save_memory(
             user_id,
@@ -737,12 +746,17 @@ async def ai_chat(message: Message):
 
     except Exception as e:
 
+        print("AI ERROR:")
+        print(str(e))
+
         await message.answer(
-            f"❌ Ошибка:\n{str(e)}"
+            f"❌ Ошибка AI:\n{str(e)}"
         )
 
-    await wait.delete()
-
+    try:
+        await wait.delete()
+    except:
+        pass
 
 # =========================================
 # WEBHOOK
