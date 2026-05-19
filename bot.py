@@ -1,4 +1,6 @@
-# -*- coding: utf-8 -*-
+# =========================================
+# IMPORTS
+# =========================================
 
 import os
 import asyncio
@@ -6,236 +8,800 @@ import sqlite3
 import tempfile
 import base64
 
-from PIL import Image
-import pytesseract
-
-import PyPDF2
-from docx import Document
+from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message
+from aiogram.types import (
+    Message,
+    Update,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    WebAppInfo,
+    CallbackQuery
+)
+
 from aiogram.filters import CommandStart
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
 from openai import OpenAI
 
-# =====================
-# TOKENS
-# =====================
-TOKEN = os.getenv("TOKEN")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+from PIL import Image
 
-# =====================
+import pytesseract
+import PyPDF2
+
+from docx import Document
+
+print("BOT STARTING...")
+
+
+# =========================================
+# TOKENS
+# =========================================
+
+TOKEN = os.getenv("TOKEN")
+
+OPENROUTER_API_KEY = os.getenv(
+    "OPENROUTER_API_KEY"
+)
+
+HF_TOKEN = os.getenv("HF_TOKEN")
+
+TAVILY_API_KEY = os.getenv(
+    "TAVILY_API_KEY"
+)
+
+
+# =========================================
+# URLS
+# =========================================
+
+WEBHOOK_URL = "https://ai-assistant-bot-kcm7.onrender.com/webhook"
+
+WEB_APP_URL = "https://ai-assistant-bot-kcm7.onrender.com"
+
+
+# =========================================
+# ADMIN
+# =========================================
+
+ADMIN_ID = 1739947062
+
+
+# =========================================
+# FLASK
+# =========================================
+
+app = Flask(__name__)
+
+
+# =========================================
 # BOT
-# =====================
-bot = Bot(token=TOKEN)
+# =========================================
+
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(
+        parse_mode=ParseMode.HTML
+    )
+)
+
 dp = Dispatcher()
+
+
+# =========================================
+# OPENROUTER
+# =========================================
 
 client = OpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY
 )
 
-# =====================
-# DB
-# =====================
-conn = sqlite3.connect("database.db", check_same_thread=False)
+
+# =========================================
+# DATABASE
+# =========================================
+
+conn = sqlite3.connect(
+    "database.db",
+    check_same_thread=False
+)
+
 cursor = conn.cursor()
 
 cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+
+    user_id INTEGER PRIMARY KEY,
+    messages INTEGER DEFAULT 0
+)
+""")
+
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS memory (
+
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     role TEXT,
     content TEXT
 )
 """)
+
 conn.commit()
 
-# =====================
-# MEMORY
-# =====================
-def save_memory(user_id, role, content):
-    cursor.execute(
-        "INSERT INTO memory (user_id, role, content) VALUES (?, ?, ?)",
-        (user_id, role, content)
-    )
-    conn.commit()
 
-def load_memory(user_id):
+# =========================================
+# DATABASE FUNCTIONS
+# =========================================
+
+def add_user(user_id):
+
     cursor.execute(
-        "SELECT role, content FROM memory WHERE user_id=? ORDER BY id DESC LIMIT 20",
+        """
+        INSERT OR IGNORE INTO users
+        (user_id)
+
+        VALUES (?)
+        """,
         (user_id,)
     )
-    rows = cursor.fetchall()[::-1]
 
-    messages = [
-        {"role": "system", "content": "Ты умный AI ассистент. Отвечай кратко и понятно."}
-    ]
+    conn.commit()
 
-    for r in rows:
-        messages.append({"role": r[0], "content": r[1]})
+
+def add_message(user_id):
+
+    cursor.execute(
+        """
+        UPDATE users
+        SET messages = messages + 1
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    conn.commit()
+
+
+def get_messages(user_id):
+
+    cursor.execute(
+        """
+        SELECT messages
+        FROM users
+        WHERE user_id=?
+        """,
+        (user_id,)
+    )
+
+    result = cursor.fetchone()
+
+    if result:
+        return result[0]
+
+    return 0
+
+
+def get_all_users():
+
+    cursor.execute(
+        "SELECT user_id FROM users"
+    )
+
+    return cursor.fetchall()
+
+
+# =========================================
+# MEMORY
+# =========================================
+
+def save_memory(user_id, role, content):
+
+    cursor.execute(
+        """
+        INSERT INTO memory
+        (user_id, role, content)
+
+        VALUES (?, ?, ?)
+        """,
+        (
+            user_id,
+            role,
+            content
+        )
+    )
+
+    conn.commit()
+
+
+def load_memory(user_id):
+
+    cursor.execute(
+        """
+        SELECT role, content
+        FROM memory
+        WHERE user_id=?
+        ORDER BY id DESC
+        LIMIT 20
+        """,
+        (user_id,)
+    )
+
+    rows = cursor.fetchall()
+
+    rows.reverse()
+
+    messages = []
+
+    messages.append({
+        "role": "system",
+        "content": "Ты мощный AI ассистент."
+    })
+
+    for row in rows:
+
+        messages.append({
+            "role": row[0],
+            "content": row[1]
+        })
 
     return messages
 
-def clear_memory(user_id):
-    cursor.execute("DELETE FROM memory WHERE user_id=?", (user_id,))
-    conn.commit()
 
-# =====================
-# START
-# =====================
-@dp.message(CommandStart())
-async def start(message: Message):
-    await message.answer(
-        "🚀 AI бот запущен\n\n"
-        "📌 Можно:\n"
-        "- писать текст\n"
-        "- отправлять фото\n"
-        "- PDF / DOCX / TXT\n"
+def clear_memory(user_id):
+
+    cursor.execute(
+        """
+        DELETE FROM memory
+        WHERE user_id=?
+        """,
+        (user_id,)
     )
 
-# =====================
-# TEXT CHAT
-# =====================
-@dp.message(F.text)
-async def chat(message: Message):
+    conn.commit()
 
-    user_id = message.from_user.id
 
-    await message.answer("🧠 Думаю...")
+# =========================================
+# MENU
+# =========================================
 
-    save_memory(user_id, "user", message.text)
+menu = InlineKeyboardMarkup(
+    inline_keyboard=[
 
-    messages = load_memory(user_id)
-    messages.append({"role": "user", "content": message.text})
+        [
+            InlineKeyboardButton(
+                text="🌐 Mini App",
+                web_app=WebAppInfo(
+                    url=WEB_APP_URL
+                )
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="🧹 Очистить память",
+                callback_data="clear"
+            )
+        ],
+
+        [
+            InlineKeyboardButton(
+                text="📊 Профиль",
+                callback_data="profile"
+            )
+        ]
+    ]
+)
+
+
+# =========================================
+# WEB APP
+# =========================================
+
+@app.route("/")
+def home():
+
+    return """
+    <!DOCTYPE html>
+    <html lang="ru">
+
+    <head>
+
+        <meta charset="UTF-8">
+
+        <meta name="viewport"
+              content="width=device-width, initial-scale=1.0">
+
+        <title>AI Assistant</title>
+
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+        <style>
+
+            body {
+
+                background: #0f172a;
+                color: white;
+                font-family: Arial;
+                padding: 20px;
+            }
+
+            textarea {
+
+                width: 100%;
+                height: 150px;
+                border-radius: 10px;
+                padding: 10px;
+                margin-top: 10px;
+            }
+
+            button {
+
+                margin-top: 10px;
+                width: 100%;
+                height: 50px;
+                border: none;
+                border-radius: 10px;
+                background: #2563eb;
+                color: white;
+                font-size: 18px;
+            }
+
+        </style>
+
+    </head>
+
+    <body>
+
+        <h1>🚀 AI Assistant</h1>
+
+        <textarea id="prompt"
+                  placeholder="Напиши сообщение..."></textarea>
+
+        <button onclick="sendMessage()">
+            Отправить
+        </button>
+
+        <script>
+
+            function sendMessage() {
+
+                let text =
+                    document.getElementById(
+                        "prompt"
+                    ).value;
+
+                Telegram.WebApp.sendData(text);
+
+                alert("Отправлено!");
+            }
+
+        </script>
+
+    </body>
+    </html>
+    """
+
+
+# =========================================
+# START
+# =========================================
+
+@dp.message(CommandStart())
+async def start_handler(message: Message):
+
+    add_user(message.from_user.id)
+
+    text = """
+🚀 <b>AI Assistant</b>
+
+Возможности:
+• GPT AI
+• Фото OCR
+• PDF / DOCX
+• Mini App
+• Память диалога
+"""
+
+    await message.answer(
+        text,
+        reply_markup=menu
+    )
+
+
+# =========================================
+# PROFILE
+# =========================================
+
+@dp.callback_query(F.data == "profile")
+async def profile_callback(
+    callback: CallbackQuery
+):
+
+    user_id = callback.from_user.id
+
+    messages_count = get_messages(user_id)
+
+    text = f"""
+👤 <b>Профиль</b>
+
+🧠 Сообщений:
+{messages_count}
+"""
+
+    await callback.message.answer(text)
+
+    await callback.answer()
+
+
+# =========================================
+# CLEAR MEMORY
+# =========================================
+
+@dp.callback_query(F.data == "clear")
+async def clear_callback(
+    callback: CallbackQuery
+):
+
+    clear_memory(callback.from_user.id)
+
+    await callback.message.answer(
+        "🧹 Память очищена"
+    )
+
+    await callback.answer()
+
+
+# =========================================
+# ADMIN
+# =========================================
+
+@dp.message(F.text == "/admin")
+async def admin_panel(message: Message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    users = get_all_users()
+
+    text = f"""
+🛠 <b>Админ панель</b>
+
+👥 Пользователей:
+{len(users)}
+"""
+
+    await message.answer(text)
+
+
+# =========================================
+# BROADCAST
+# =========================================
+
+@dp.message(F.text.startswith("/broadcast "))
+async def broadcast(message: Message):
+
+    if message.from_user.id != ADMIN_ID:
+        return
+
+    text = message.text.replace(
+        "/broadcast ",
+        ""
+    )
+
+    users = get_all_users()
+
+    success = 0
+
+    for user in users:
+
+        try:
+
+            await bot.send_message(
+                user[0],
+                text
+            )
+
+            success += 1
+
+        except:
+            pass
+
+    await message.answer(
+        f"✅ Отправлено: {success}"
+    )
+
+
+# =========================================
+# PHOTO OCR
+# =========================================
+
+@dp.message(F.photo)
+async def photo_handler(message: Message):
+
+    wait = await message.answer(
+        "🖼 Анализирую фото..."
+    )
 
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=messages
+
+        photo = message.photo[-1]
+
+        file = await bot.get_file(
+            photo.file_id
         )
 
-        answer = response.choices[0].message.content
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".jpg"
+        ) as temp:
 
-        save_memory(user_id, "assistant", answer)
+            await bot.download_file(
+                file.file_path,
+                temp.name
+            )
+
+            image = Image.open(temp.name)
+
+            text = pytesseract.image_to_string(
+                image,
+                lang="eng+rus"
+            )
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-4o-mini",
+
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+Распознай и реши:
+
+{text}
+"""
+                }
+            ]
+        )
+
+        answer = response.choices[
+            0
+        ].message.content
 
         await message.answer(answer)
 
     except Exception as e:
-        await message.answer(f"Ошибка AI: {e}")
 
-# =====================
-# PHOTO + OCR + GPT VISION
-# =====================
-@dp.message(F.photo)
-async def photo_handler(message: Message):
-
-    wait = await message.answer("🖼 Анализирую фото...")
-
-    try:
-        photo = message.photo[-1]
-        file = await bot.get_file(photo.file_id)
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp:
-            await bot.download_file(file.file_path, temp.name)
-
-            image = Image.open(temp.name)
-
-            # OCR
-            ocr_text = pytesseract.image_to_string(image, lang="eng+rus")
-
-            # base64
-            with open(temp.name, "rb") as img:
-                b64 = base64.b64encode(img.read()).decode()
-
-        response = client.chat.completions.create(
-            model="openai/gpt-4o-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Реши задачу с изображения.\nOCR:\n{ocr_text}"
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{b64}"
-                            }
-                        }
-                    ]
-                }
-            ]
-        )
-
-        await message.answer(response.choices[0].message.content)
-
-    except Exception as e:
-        await message.answer(f"Ошибка фото: {e}")
+        await message.answer(str(e))
 
     await wait.delete()
 
-# =====================
-# DOCUMENTS (PDF / DOCX / TXT)
-# =====================
-@dp.message(F.document)
-async def doc_handler(message: Message):
 
-    wait = await message.answer("📄 Читаю файл...")
+# =========================================
+# FILES
+# =========================================
+
+@dp.message(F.document)
+async def file_handler(message: Message):
+
+    wait = await message.answer(
+        "📄 Анализирую файл..."
+    )
 
     try:
-        doc = message.document
-        file = await bot.get_file(doc.file_id)
 
-        suffix = os.path.splitext(doc.file_name)[1]
+        document = message.document
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp:
-            await bot.download_file(file.file_path, temp.name)
+        file = await bot.get_file(
+            document.file_id
+        )
+
+        suffix = os.path.splitext(
+            document.file_name
+        )[1]
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=suffix
+        ) as temp:
+
+            await bot.download_file(
+                file.file_path,
+                temp.name
+            )
 
             text = ""
 
-            # PDF
             if suffix == ".pdf":
-                with open(temp.name, "rb") as f:
-                    reader = PyPDF2.PdfReader(f)
+
+                with open(
+                    temp.name,
+                    "rb"
+                ) as pdf:
+
+                    reader = PyPDF2.PdfReader(pdf)
+
                     for page in reader.pages:
-                        text += page.extract_text() or ""
 
-            # TXT
+                        extracted = page.extract_text()
+
+                        if extracted:
+                            text += extracted
+
             elif suffix == ".txt":
-                with open(temp.name, "r", encoding="utf-8", errors="ignore") as f:
-                    text = f.read()
 
-            # DOCX
+                with open(
+                    temp.name,
+                    "r",
+                    encoding="utf-8",
+                    errors="ignore"
+                ) as txt:
+
+                    text = txt.read()
+
             elif suffix == ".docx":
-                docx = Document(temp.name)
-                for p in docx.paragraphs:
-                    text += p.text + "\n"
+
+                doc = Document(temp.name)
+
+                for para in doc.paragraphs:
+
+                    text += para.text + "\n"
 
         response = client.chat.completions.create(
+
             model="openai/gpt-4o-mini",
+
             messages=[
                 {
                     "role": "user",
-                    "content": f"Проанализируй документ:\n\n{text[:15000]}"
+                    "content": f"""
+Проанализируй файл:
+
+{text[:15000]}
+"""
                 }
             ]
         )
 
-        await message.answer(response.choices[0].message.content)
+        answer = response.choices[
+            0
+        ].message.content
+
+        await message.answer(answer)
 
     except Exception as e:
-        await message.answer(f"Ошибка файла: {e}")
+
+        await message.answer(str(e))
 
     await wait.delete()
 
-# =====================
-# START BOT
-# =====================
-async def main():
-    print("BOT STARTED")
-    await dp.start_polling(bot)
+
+# =========================================
+# CHAT
+# =========================================
+
+@dp.message()
+async def ai_chat(message: Message):
+
+    user_id = message.from_user.id
+
+    add_user(user_id)
+
+    add_message(user_id)
+
+    wait = await message.answer(
+        "🧠 Думаю..."
+    )
+
+    try:
+
+        save_memory(
+            user_id,
+            "user",
+            message.text
+        )
+
+        messages = load_memory(user_id)
+
+        response = client.chat.completions.create(
+
+            model="openai/gpt-4o-mini",
+
+            messages=messages
+        )
+
+        answer = response.choices[
+            0
+        ].message.content
+
+        save_memory(
+            user_id,
+            "assistant",
+            answer
+        )
+
+        await message.answer(answer)
+
+    except Exception as e:
+
+        await message.answer(str(e))
+
+    await wait.delete()
+
+
+# =========================================
+# WEBHOOK
+# =========================================
+
+@app.route(
+    "/webhook",
+    methods=["POST"]
+)
+
+async def webhook():
+
+    try:
+
+        update = Update.model_validate(
+            request.json,
+            context={"bot": bot}
+        )
+
+        await dp.feed_update(
+            bot,
+            update
+        )
+
+        return "ok"
+
+    except Exception as e:
+
+        print(e)
+
+        return "error"
+
+
+# =========================================
+# MAIN
+# =========================================
+
+print("FLASK START...")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+
+    try:
+
+        print("STARTING WEBHOOK...")
+
+        async def startup():
+
+            await bot.delete_webhook(
+                drop_pending_updates=True
+            )
+
+            await bot.set_webhook(
+                WEBHOOK_URL
+            )
+
+        asyncio.run(startup())
+
+        print("WEBHOOK OK")
+
+        port = int(
+            os.environ.get("PORT", 8080)
+        )
+
+        print("START SERVER...")
+
+        app.run(
+            host="0.0.0.0",
+            port=port,
+            threaded=True
+        )
+
+    except Exception as e:
+
+        print("ERROR:")
+        print(str(e))
