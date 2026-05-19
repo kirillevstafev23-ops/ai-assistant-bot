@@ -8,42 +8,30 @@ import sqlite3
 import tempfile
 import base64
 
+from dotenv import load_dotenv
 from flask import Flask, request
 
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message,
-    Update,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    WebAppInfo,
-    CallbackQuery
-)
-
-from aiogram.filters import CommandStart
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import Message, Update
+from aiogram.filters import CommandStart
 
 from openai import OpenAI
 
-from PIL import Image
 
-import pytesseract
-import PyPDF2
+# =========================================
+# LOAD ENV
+# =========================================
 
-from docx import Document
-
-print("BOT STARTING...")
-
-print("TOKEN:", TOKEN)
-print("OPENROUTER:", OPENROUTER_API_KEY)
-
+load_dotenv()
 
 # =========================================
 # TOKENS
 # =========================================
 
-TOKEN = "8990614240:AAH7is1k5dNKgNpl_FbUXarn0SXo1aHhYSY"
+TOKEN = os.getenv("8990614240:AAH7is1k5dNKgNpl_FbUXarn0SXo1aHhYSY")
+
 
 OPENROUTER_API_KEY = os.getenv(
     "OPENROUTER_API_KEY"
@@ -55,6 +43,13 @@ TAVILY_API_KEY = os.getenv(
     "TAVILY_API_KEY"
 )
 
+
+# =========================================
+# CHECK TOKENS
+# =========================================
+
+print("TOKEN:", TOKEN)
+print("OPENROUTER:", OPENROUTER_API_KEY)
 
 # =========================================
 # URLS
