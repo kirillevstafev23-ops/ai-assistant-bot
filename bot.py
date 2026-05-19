@@ -35,6 +35,9 @@ from docx import Document
 
 print("BOT STARTING...")
 
+print("TOKEN:", TOKEN)
+print("OPENROUTER:", OPENROUTER_API_KEY)
+
 
 # =========================================
 # TOKENS
