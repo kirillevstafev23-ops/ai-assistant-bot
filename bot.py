@@ -556,7 +556,7 @@ async def photo_handler(message: Message):
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-3.5-turbo",
 
             messages=[
                 {
@@ -655,7 +655,7 @@ async def file_handler(message: Message):
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-3.5-turbo",
 
             messages=[
                 {
@@ -711,7 +711,7 @@ async def ai_chat(message: Message):
 
         response = client.chat.completions.create(
 
-            model="openai/gpt-4o-mini",
+            model="openai/gpt-3.5-turbo",
 
             messages=messages
         )
