@@ -68,7 +68,6 @@ WEB_APP_URL = "https://ai-assistant-bot-kcm7.onrender.com"
 
 ADMIN_ID = 1739947062
 
-
 # =========================================
 # FLASK
 # =========================================
@@ -392,14 +391,12 @@ def home():
 @dp.message(CommandStart())
 async def start(message: Message):
 
-    print("START COMMAND RECEIVED")
-
-    await message.answer("Бот работает")
-
     add_user(message.from_user.id)
 
     text = """
 🚀 <b>AI Assistant</b>
+
+Добро пожаловать.
 
 Возможности:
 • GPT AI
@@ -651,7 +648,7 @@ async def file_handler(message: Message):
 
                 for para in doc.paragraphs:
 
-                    text += para.text + "\n"
+                    text += para.text + "\\n"
 
         response = client.chat.completions.create(
 
@@ -730,7 +727,9 @@ async def ai_chat(message: Message):
 
     except Exception as e:
 
-        await message.answer(str(e))
+        await message.answer(
+            f"❌ Ошибка:\\n{str(e)}"
+        )
 
     await wait.delete()
 
@@ -739,8 +738,11 @@ async def ai_chat(message: Message):
 # WEBHOOK
 # =========================================
 
-@app.route("/webhook", methods=["POST"])
-async def webhook():
+@app.route(
+    "/webhook",
+    methods=["POST"]
+)
+def webhook():
 
     try:
 
@@ -749,7 +751,14 @@ async def webhook():
             context={"bot": bot}
         )
 
-        await dp.feed_update(bot, update)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(
+            dp.feed_update(bot, update)
+        )
+
+        loop.close()
 
         return "ok"
 
@@ -760,9 +769,54 @@ async def webhook():
 
         return "error", 500
 
+
 # =========================================
 # MAIN
 # =========================================
 
 print("FLASK START...")
 
+if __name__ == "__main__":
+
+    try:
+
+        print("SETTING WEBHOOK...")
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(
+            bot.delete_webhook(
+                drop_pending_updates=True
+            )
+        )
+
+        loop.run_until_complete(
+            bot.set_webhook(
+                WEBHOOK_URL
+            )
+        )
+
+        info = loop.run_until_complete(
+            bot.get_webhook_info()
+        )
+
+        print(info)
+
+        print("WEBHOOK OK")
+
+        port = int(
+            os.environ.get("PORT", 10000)
+        )
+
+        print("START SERVER...")
+
+        app.run(
+            host="0.0.0.0",
+            port=port
+        )
+
+    except Exception as e:
+
+        print("ERROR:")
+        print(str(e))
