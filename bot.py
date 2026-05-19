@@ -40,7 +40,7 @@ print("BOT STARTING...")
 # TOKENS
 # =========================================
 
-TOKEN =8990614240:AAHKqXC5V51LljQCAmpkEE3lFKskDiLUES4
+TOKEN = "8990614240:AAHKqXC5V51LljQCAmpkEE3lFKskDiLUES4"
 
 OPENROUTER_API_KEY = os.getenv(
     "OPENROUTER_API_KEY"
