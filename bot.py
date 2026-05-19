@@ -747,22 +747,22 @@ def webhook():
 
     try:
 
+        data = request.get_json()
+
+        print("UPDATE RECEIVED:")
+        print(data)
+
         update = Update.model_validate(
-            request.json
+            data,
+            context={"bot": bot}
         )
 
-        loop = asyncio.new_event_loop()
-
-        asyncio.set_event_loop(loop)
-
-        loop.run_until_complete(
+        asyncio.run(
             dp.feed_update(
                 bot,
                 update
             )
         )
-
-        loop.close()
 
         return "ok", 200
 
