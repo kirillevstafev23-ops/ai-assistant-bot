@@ -6,7 +6,6 @@ import os
 import asyncio
 import sqlite3
 import tempfile
-import base64
 
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -14,10 +13,22 @@ from flask import Flask, request
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
-from aiogram.types import Message, Update
+from aiogram.types import (
+    Message,
+    Update,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    WebAppInfo,
+    CallbackQuery
+)
 from aiogram.filters import CommandStart
 
 from openai import OpenAI
+
+from PIL import Image
+import pytesseract
+import PyPDF2
+from docx import Document
 
 
 # =========================================
@@ -26,22 +37,18 @@ from openai import OpenAI
 
 load_dotenv()
 
+
 # =========================================
 # TOKENS
 # =========================================
 
-TOKEN = os.getenv("8990614240:AAH7is1k5dNKgNpl_FbUXarn0SXo1aHhYSY")
+TOKEN = "8990614240:AAH7is1k5dNKgNpl_FbUXarn0SXo1aHhYSY"
 
+OPENROUTER_API_KEY = "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"
 
-OPENROUTER_API_KEY = os.getenv(
-    "OPENROUTER_API_KEY"
-)
+HF_TOKEN = "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"
 
-HF_TOKEN = os.getenv("HF_TOKEN")
-
-TAVILY_API_KEY = os.getenv(
-    "TAVILY_API_KEY"
-)
+TAVILY_API_KEY = "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"
 
 
 # =========================================
@@ -50,6 +57,7 @@ TAVILY_API_KEY = os.getenv(
 
 print("TOKEN:", TOKEN)
 print("OPENROUTER:", OPENROUTER_API_KEY)
+
 
 # =========================================
 # URLS
@@ -65,6 +73,7 @@ WEB_APP_URL = "https://ai-assistant-bot-kcm7.onrender.com"
 # =========================================
 
 ADMIN_ID = 1739947062
+
 
 # =========================================
 # FLASK
@@ -599,7 +608,7 @@ async def file_handler(message: Message):
 
         suffix = os.path.splitext(
             document.file_name
-        )[1]
+        )[1].lower()
 
         with tempfile.NamedTemporaryFile(
             delete=False,
@@ -646,7 +655,7 @@ async def file_handler(message: Message):
 
                 for para in doc.paragraphs:
 
-                    text += para.text + "\\n"
+                    text += para.text + "\n"
 
         response = client.chat.completions.create(
 
@@ -683,6 +692,9 @@ async def file_handler(message: Message):
 
 @dp.message()
 async def ai_chat(message: Message):
+
+    if not message.text:
+        return
 
     user_id = message.from_user.id
 
@@ -726,7 +738,7 @@ async def ai_chat(message: Message):
     except Exception as e:
 
         await message.answer(
-            f"❌ Ошибка:\\n{str(e)}"
+            f"❌ Ошибка:\n{str(e)}"
         )
 
     await wait.delete()
