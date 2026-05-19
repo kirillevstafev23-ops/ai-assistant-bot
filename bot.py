@@ -747,24 +747,16 @@ def webhook():
 
     try:
 
-        data = request.get_json()
-
-        print("UPDATE RECEIVED:")
-        print(data)
-
         update = Update.model_validate(
-            data,
+            request.json,
             context={"bot": bot}
         )
 
         asyncio.run(
-            dp.feed_update(
-                bot,
-                update
-            )
+            dp.feed_update(bot, update)
         )
 
-        return "ok", 200
+        return "ok"
 
     except Exception as e:
 
@@ -786,21 +778,23 @@ if __name__ == "__main__":
 
         print("STARTING WEBHOOK...")
 
-        async def startup():
-
-            await bot.delete_webhook(
+        asyncio.run(
+            bot.delete_webhook(
                 drop_pending_updates=True
             )
+        )
 
-            await bot.set_webhook(
+        asyncio.run(
+            bot.set_webhook(
                 WEBHOOK_URL
             )
+        )
 
-            info = await bot.get_webhook_info()
+        info = asyncio.run(
+            bot.get_webhook_info()
+        )
 
-            print(info)
-
-        asyncio.run(startup())
+        print(info)
 
         print("WEBHOOK OK")
 
