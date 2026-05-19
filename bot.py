@@ -781,13 +781,13 @@ if __name__ == "__main__":
                 drop_pending_updates=True
             )
 
-           await bot.set_webhook(
-    WEBHOOK_URL
-)
+            await bot.set_webhook(
+                WEBHOOK_URL
+            )
 
-info = await bot.get_webhook_info()
+            info = await bot.get_webhook_info()
 
-print(info)
+            print(info)
 
         asyncio.run(startup())
 
