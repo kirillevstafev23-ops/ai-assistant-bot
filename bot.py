@@ -41,13 +41,10 @@ load_dotenv()
 # TOKENS
 # =========================================
 
-TOKEN = "8990614240:AAH7is1k5dNKgNpl_FbUXarn0SXo1aHhYSY"
-
-OPENROUTER_API_KEY = "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"
-
-HF_TOKEN = "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"
-
-TAVILY_API_KEY = "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"
+TOKEN = os.getenv("TOKEN")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 
 
 # =========================================
