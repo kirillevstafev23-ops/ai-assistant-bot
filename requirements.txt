@@ -1,10 +1,7 @@
-aiogram
-openai
+aiogram==3.7.0
+openai==1.30.1
 aiohttp
-pydub
-ffmpeg-python
 python-dotenv
-duckduckgo-search
 requests
 PyPDF2
 python-docx
